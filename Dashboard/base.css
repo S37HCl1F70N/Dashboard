@@ -1,1 +1,165 @@
+/* === FONT DECLARATIONS === */
+@font-face {
+  font-family: "FX_LED";
+  src: url("fonts/FX-LED.ttf");
+}
+@font-face {
+  font-family: "Hack-Bold";
+  src: url("fonts/Hack-Bold.ttf");
+}
+@font-face {
+  font-family: "Hack";
+  src: url("fonts/Hack-Regular.ttf");
+}
 
+/* === HTML & BODY RESET === */
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: #121212;
+  color: #fff;
+  font-family: "Hack", sans-serif;
+  overflow-y: auto;
+}
+
+/* === GLOBAL LAYOUT CONTAINERS === */
+#widget-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+/* === TOP BAR === */
+.top-bar {
+  background-color: #1e1e1e;
+  color: #fff;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #444;
+  position: sticky;
+  top: 0;
+  z-index: 999;
+}
+.nav-left {
+  flex: 1;
+}
+.site-title {
+  font-family: "Hack-Bold", sans-serif;
+  font-size: 1.5rem;
+  color: #ff6347;
+  margin: 0;
+  text-align: center;
+  flex: none;
+}
+.nav-menu {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 1.5rem;
+}
+.nav-menu a {
+  color: #ddd;
+  text-decoration: none;
+  font-weight: bold;
+  font-family: "Hack", sans-serif;
+  transition: color 0.2s ease;
+}
+.nav-menu a:hover {
+  color: #ff6347;
+}
+
+/* === WIDGET BASE STYLE === */
+.widget {
+  background-color: #000;
+  color: #fff;
+  font-family: "Hack", sans-serif;
+  border-radius: 2rem;
+  padding: 1.5rem;
+  border: 0.5rem solid #2d2d2d;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  min-width: 220px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+.widget h2 {
+  margin-top: 0;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #ff6347;
+  text-align: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #2d2d2d;
+}
+.widget-content {
+  flex-grow: 1;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.widget .placeholder {
+  text-align: center;
+  color: #777;
+  padding: 1rem 0;
+  font-style: italic;
+}
+.widget-row {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+.widget-row.full-width {
+  justify-content: center;
+}
+.widget-row > .widget {
+  flex: 1;
+  min-width: 300px;
+  max-width: 600px;
+}
+
+/* === INPUTS & GENERIC BUTTONS === */
+.widget input[type="text"],
+.widget input[type="url"],
+.widget input[type="number"],
+.widget input[type="time"],
+.widget textarea,
+.widget select {
+  font-family: "Hack", sans-serif;
+  font-size: 0.9rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #444;
+  background: #1e1e1e;
+  color: #fff;
+  width: calc(100% - 1rem);
+  margin-bottom: 0.75rem;
+  box-sizing: border-box;
+}
+
+.widget button {
+  font-size: 0.9rem;
+  padding: 0.6rem 1.2rem;
+  cursor: pointer;
+}
+
+.theme-toggle-btn {
+  margin-left: auto;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  background-color: #444;
+  color: #eee;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.theme-toggle-btn:hover {
+  background-color: #666;
+}
