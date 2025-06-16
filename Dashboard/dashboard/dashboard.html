@@ -1,1 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Daily Dashboard</title>
 
+  <!-- Base & Theme Styles -->
+   <link rel="stylesheet" href="dashboard.css">
+  <link rel="stylesheet" href="../base.css">
+  <link rel="stylesheet" href="../responsive.css">
+  <link rel="stylesheet" href="../crt-theme.css" id="theme-stylesheet">
+
+  <!-- Page Specific -->
+  <link rel="stylesheet" href="dashboard page/dashboard.css">
+</head>
+
+<body class="crt-theme">
+
+  <header class="top-bar">
+    <div class="nav-left"></div>
+    <h1 class="site-title">Master Seth's Command Console</h1>
+    <nav class="nav-menu">
+      <a href="dashboard.html">🏠 Dashboard</a>
+      <a href="../radar/radar.html">🌩️ Radar</a>
+    </nav>
+    <button id="theme-toggle-btn" class="theme-toggle-btn">🎨 Switch Theme</button>
+  </header>
+  
+  <div id="widget-container">
+    <!-- DIGITAL CLOCK -->
+    <div class="widget-row full-width">
+      <div class="widget digital-clock-widget" id="clock-widget">
+        <div class="week">
+          <div>SUN</div><div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div><div>SAT</div>
+        </div>
+        <div class="time">
+          <div class="hour">12</div>
+          <div class="dot">:</div>
+          <div class="min">00</div>
+          <div class="ampm">AM</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COUNTDOWN + QUICK LINKS side by side -->
+    <div class="widget-row">
+      <!-- COUNTDOWN TIMER -->
+      <div class="widget countdown-widget" id="countdown-widget">
+        <h2>Countdown</h2>
+        <div class="countdown-controls">
+          <label for="startTime">Start:</label>
+          <input type="time" id="startTime">
+          <label for="endTime">End:</label>
+          <input type="time" id="endTime">
+          <button id="startCountdownBtn" class="button">Start</button>
+          <button id="resetCountdownBtn" class="button">Reset</button>
+        </div>
+        <div class="progress-container">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="countdown-label" id="countdown-label">00:00:00</div>
+      </div>
+
+      <!-- QUICK LINKS WIDGET -->
+      <div class="widget" id="quick-links-widget">
+        <h2>Quick Links</h2>
+        <div class="widget-content">
+          <input type="text" id="linkNameInput" placeholder="Link Name">
+          <input type="url" id="linkUrlInput" placeholder="Link URL (e.g., https://example.com)">
+          <button id="addLinkBtn" class="button">Add Link</button>
+          <ul id="linkList"></ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Future Widgets (commented for future use) -->
+    <!--
+    <div class="widget" id="daily-goals-widget"> ... </div>
+    <div class="widget" id="project-progress-widget"> ... </div>
+    <div class="widget" id="habit-tracking-widget"> ... </div>
+    <div class="widget" id="todo-list-widget"> ... </div>
+    -->
+  </div> <!-- End of widget-container -->
+
+  <!-- Scripts -->
+  <script src="../base.js" defer></script>
+  <script src="./dashboard.js" defer></script>
+</body>
+</html>
