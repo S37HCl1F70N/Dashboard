@@ -1,1 +1,80 @@
+/* ===================================
+   RESPONSIVE LAYOUTS FOR DASHBOARD
+   =================================== */
 
+@media (max-width: 768px) {
+
+  /* === DASHBOARD CONTAINER STACKING === */
+  #dashboard-container {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .dashboard-section {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .widget {
+    min-width: 90% !important;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  /* === DIGITAL CLOCK SCALING === */
+  .widget-clock {
+    padding: 1.5rem;
+  }
+
+  .clock-hour,
+  .clock-min {
+    font-size: 6rem;
+  }
+
+  .clock-colon {
+    font-size: 3rem;
+  }
+
+  .clock-ampm {
+    font-size: 2rem;
+  }
+
+  .clock-weekdays {
+    width: auto;
+    margin-right: 1rem;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.3rem;
+  }
+
+  .clock-weekdays div {
+    font-size: 0.7rem;
+    padding: 0.3rem;
+  }
+
+  .clock-weekdays .active {
+    padding: 0.3rem 0.5rem;
+    border-radius: 1rem;
+  }
+
+  /* === COUNTDOWN WIDGET STACKING === */
+  .widget-countdown {
+    padding: 1.5rem;
+  }
+
+  .countdown-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .countdown-controls input[type="time"],
+  .countdown-controls button {
+    width: 100%;
+  }
+
+  .countdown-display {
+    font-size: 2rem;
+  }
+}
