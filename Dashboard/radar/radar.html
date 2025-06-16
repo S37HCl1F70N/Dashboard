@@ -1,1 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" class="radar-page">
+<head>
+  <meta charset="UTF-8">
+  <title>Florida NOAA Radar Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <!-- Base & Theme Styles -->
+   <link rel="stylesheet" href="radar.css">
+  <link rel="stylesheet" href="../base.css">
+  <link rel="stylesheet" href="../responsive.css">
+  <link rel="stylesheet" href="../crt-theme.css" id="theme-stylesheet">
+
+  <!-- Page Specific -->
+  <link rel="stylesheet" href="radar page/radar.css">
+</head>
+
+<body class="radar-page crt-theme">
+  <header class="top-bar">
+    <div class="nav-left"></div>
+    <h1 class="site-title">Master Seth's Command Console</h1>
+    <nav class="nav-menu">
+      <a href="../dashboard/dashboard.html">🏠 Dashboard</a>
+      <a href="radar.html">🌩️ Radar</a>
+    </nav>
+    <button id="theme-toggle-btn" class="theme-toggle-btn">🎨 Switch Theme</button>
+  </header>
+
+  <div class="status-bar">
+    <div id="clock-bar">Local: --:--:-- | UTC: --:--:--</div>
+    <div id="current-conditions">
+      <span id="temp"><span class="emoji">🌡️</span> Loading…</span>
+      <span id="cond"><span class="emoji">🌤️</span> —</span>
+      <span id="wind"><span class="emoji">💨</span> —</span>
+    </div>
+  </div>
+
+  <div class="alert-bar" id="rss-alerts">
+    <div class="scrolling-text" id="alerts-text">Loading alerts...</div>
+    <span class="timestamp" id="last-updated"></span>
+  </div>
+
+  <div class="forecast-bar">
+    <div class="scrolling-text" id="forecast-bar">
+      <span id="forecast-text">Loading forecast...</span>
+      <span id="forecast-text-clone" aria-hidden="true"></span>
+    </div>
+  </div>
+
+  <audio id="alert-sound" preload="auto">
+    <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg">
+  </audio>
+
+  <div class="grid-container">
+    <div class="zone">
+      <div class="zone-title">Mobile, AL (MOB)</div>
+      <img src="https://radar.weather.gov/ridge/standard/KEVX_loop.gif" alt="Radar1">
+      <button class="button" onclick="window.open('https://radar.weather.gov/station/MOB/standard', '_blank')">Open Full Page</button>
+    </div>
+    <div class="zone">
+      <div class="zone-title">Tallahassee, FL (TLH)</div>
+      <img src="https://radar.weather.gov/ridge/standard/KVAX_loop.gif" alt="Radar2">
+      <button class="button" onclick="window.open('https://radar.weather.gov/station/TLH/standard', '_blank')">Open Full Page</button>
+    </div>
+    <div class="zone">
+      <div class="zone-title">Tampa, FL (TBW)</div>
+      <img src="https://radar.weather.gov/ridge/standard/KTBW_loop.gif" alt="Radar3">
+      <button class="button" onclick="window.open('https://radar.weather.gov/station/TBW/standard', '_blank')">Open Full Page</button>
+    </div>
+    <div class="zone">
+      <div class="zone-title">Miami, FL (AMX)</div>
+      <img src="https://radar.weather.gov/ridge/standard/KAMX_loop.gif" alt="Radar4">
+      <button class="button" onclick="window.open('https://radar.weather.gov/station/AMX/standard', '_blank')">Open Full Page</button>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../base.js"></script>
+  <script src="radar.js"></script>
+</body>
+</html>
