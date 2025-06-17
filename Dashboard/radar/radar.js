@@ -1,7 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
   if (!document.body.classList.contains("radar-page")) return;
 
-  // Clock
   function updateClock() {
     const now = new Date();
     const localTime = now.toLocaleTimeString();
@@ -14,13 +13,11 @@ document.addEventListener("DOMContentLoaded", () => {
   setInterval(updateClock, 1000);
   updateClock();
 
-  // NOAA Alerts
   const alertFeed = "https://api.weather.gov/alerts/active?area=FL";
   async function loadAlerts() {
     try {
       const res = await fetch(alertFeed);
       const data = await res.json();
-
       const alerts = data.features.map(f => {
         const title = f.properties.headline;
         const link = f.properties.web;
@@ -42,14 +39,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (err) {
       console.error("Alert feed error:", err);
-      const alertsText = document.getElementById("alerts-text");
-      if (alertsText) alertsText.textContent = "Alert load failed.";
+      document.getElementById("alerts-text").textContent = "Alert load failed.";
     }
   }
   setInterval(loadAlerts, 300000);
   loadAlerts();
 
-  // NOAA Forecast
   const forecastFeed = "https://api.weather.gov/gridpoints/MOB/60,57/forecast";
   async function loadForecast() {
     try {
@@ -71,20 +66,18 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (err) {
       console.error("Forecast error:", err);
-      const forecastMain = document.getElementById("forecast-text");
-      if (forecastMain) forecastMain.textContent = "Forecast load failed.";
+      document.getElementById("forecast-text").textContent = "Forecast load failed.";
     }
   }
   setInterval(loadForecast, 300000);
   loadForecast();
 
-  // Scroll Speed
   function applyScrollSpeed(id, pixelsPerSecond = 60) {
     const el = document.getElementById(id);
     if (!el) return;
 
     requestAnimationFrame(() => {
-      const textWidth = el.scrollWidth / 2;
+      const textWidth = el.scrollWidth;
       const parentWidth = el.parentElement.offsetWidth;
       const totalDistance = textWidth + parentWidth;
       const duration = totalDistance / pixelsPerSecond;
@@ -93,7 +86,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Weather Conditions
   async function loadConditions() {
     const conditionsFeed = "https://api.weather.gov/stations/KVPS/observations/latest";
     try {
