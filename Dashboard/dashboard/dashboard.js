@@ -17,7 +17,6 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem(key, JSON.stringify(value));
   };
 
-
   // --- DIGITAL CLOCK WIDGET ---
   const hourEl = $(".digital-clock-widget .hour");
   const dotEl = $(".digital-clock-widget .dot");
@@ -167,6 +166,66 @@ document.addEventListener("DOMContentLoaded", () => {
     resetCountdownBtn.addEventListener("click", resetCountdown);
   }
 
-  console.log("All basic widget functionalities implemented.");
-  console.log("Next steps: Draggable, resizable, and selectable widget features.");
+  // --- QUICK LINKS WIDGET ---
+  const linkNameInput = $("#linkNameInput");
+  const linkUrlInput = $("#linkUrlInput");
+  const addLinkBtn = $("#addLinkBtn");
+  const linkList = $("#linkList");
+
+  const saveLinksToStorage = () => {
+    const links = Array.from(linkList.children).map(li => {
+      const a = li.querySelector("a");
+      return {
+        name: a.textContent,
+        url: a.href
+      };
+    });
+    saveToStorage("quickLinks", links);
+  };
+
+  const loadLinksFromStorage = () => {
+    const stored = getFromStorage("quickLinks") || [];
+    stored.forEach(link => addLink(link.name, link.url));
+  };
+
+  const addLink = (name, url) => {
+    const li = document.createElement("li");
+
+    const btn = document.createElement("button");
+    btn.textContent = name;
+    btn.classList.add("quick-link-btn");
+    btn.addEventListener("click", () => window.open(url, "_blank"));
+
+    const removeBtn = document.createElement("button");
+    removeBtn.textContent = "✕";
+    removeBtn.classList.add("remove-item-btn");
+    removeBtn.addEventListener("click", () => {
+      li.remove();
+      saveLinksToStorage();
+    });
+
+    li.appendChild(btn);
+    li.appendChild(removeBtn);
+    linkList.appendChild(li);
+  };
+
+
+  if (addLinkBtn) {
+    addLinkBtn.addEventListener("click", () => {
+      const name = linkNameInput.value.trim();
+      const url = linkUrlInput.value.trim();
+      if (!name || !url) return;
+
+      addLink(name, url);
+      saveLinksToStorage();
+
+      linkNameInput.value = "";
+      linkUrlInput.value = "";
+    });
+  }
+
+  loadLinksFromStorage();
+
+  // --- Log ---
+  console.log("All widget functionalities initialized.");
 });
