@@ -1,17 +1,16 @@
-/* === CRT BASE OVERRIDES === */
 .crt-theme {
   background-color: #000 !important;
   color: #00FF41 !important;
   font-family: 'Courier New', Courier, monospace !important;
   letter-spacing: 0.05em;
 }
-
-/* === SCANLINE OVERLAY === */
 .crt-theme::before {
   content: "";
   position: fixed;
-  top: 0; left: 0;
-  height: 100%; width: 100%;
+  top: 0; 
+  left: 0;
+  width: 100%;
+  height: 100%; 
   pointer-events: none;
   background-image: repeating-linear-gradient(
     to bottom,
@@ -21,101 +20,40 @@
     transparent 2px
   );
   z-index: 1000;
+  background-attachment: scroll;
 }
-
-/* === HEADER BAR === */
-.crt-theme #clock-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 12px;
-  border-bottom: 2px solid #00FF41;
-  background-color: #000;
-  font-size: 1rem;
-}
-.crt-theme #last-updated {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-}
-.crt-theme #current-conditions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* === TICKERS === */
-.crt-theme .alert-bar,
-.crt-theme .forecast-bar {
+.crt-theme .widget,
+.crt-theme .zone {
   background-color: #000 !important;
-  border-top: 1px solid #00FF41;
-  border-bottom: 1px solid #00FF41;
   color: #00FF41 !important;
-  font-size: 0.9rem;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  white-space: nowrap;
-}
-.crt-theme .scrolling-text {
-  padding-left: 100%;
-  animation: scroll-left 30s linear infinite;
-}
-.crt-theme .alert-bar.alert-flash {
-  animation: flash 1s steps(1, start) infinite;
-}
-@keyframes scroll-left {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-100%); }
-}
-@keyframes flash {
-  0%, 100% { background-color: #000; }
-  50%      { background-color: #550000; }
-}
-
-/* === ZONES & WIDGETS === */
-.crt-theme .zone,
-.crt-theme .widget {
   border: 1px solid #00FF41 !important;
-  background-color: #000 !important;
-  color: #00FF41 !important;
 }
-.crt-theme .zone-title,
-.crt-theme .widget h2 {
+.crt-theme h2,
+.crt-theme .zone-title {
   color: #00FF41 !important;
   border-bottom: 1px dashed #00FF41;
-  text-align: center;
 }
-
-/* === BUTTONS === */
-.crt-theme .button,
-.crt-theme .remove-item-btn {
-  background-color: transparent !important;
+.crt-theme .hour,
+.crt-theme .min,
+.crt-theme .countdown-label,
+.crt-theme .dot {
+  color: #00FF41 !important;
+}
+.crt-theme .digital-clock-widget .week div {
+  color: #006400;
+}
+.crt-theme .digital-clock-widget .week .active {
+  color: #00FF41;
+  border: 1px dashed #00FF41;
+  background: transparent;
+}
+.crt-theme .progress-container {
+  background: #000 !important;
   border: 1px dashed #00FF41 !important;
-  color: #00FF41 !important;
-  font-family: 'Courier New', Courier, monospace !important;
-  box-shadow: none !important;
-  height: auto !important;
-  min-width: auto !important;
 }
-.crt-theme .button:hover {
-  background-color: #001f00 !important;
-  color: #00ff99 !important;
+.crt-theme .progress-bar {
+  background-color: #00FF41 !important;
 }
-
-/* === LINKS === */
-.crt-theme a {
-  color: #00FF41 !important;
-  font-size: 0.85rem;
-  text-decoration: none;
-}
-.crt-theme a:hover {
-  text-decoration: underline;
-  color: #00ff99 !important;
-}
-
-/* === INPUTS === */
 .crt-theme input,
 .crt-theme textarea,
 .crt-theme select {
@@ -124,82 +62,37 @@
   color: #00FF41 !important;
   font-family: 'Courier New', Courier, monospace !important;
 }
-.crt-theme input[type="text"],
-.crt-theme input[type="url"],
-.crt-theme input[type="number"],
-.crt-theme input[type="time"] {
-  background-color: #000;
+
+.crt-theme .quick-link-btn {
+  background-color: transparent;
   border: 1px dashed #00FF41;
   color: #00FF41;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 1rem;
-  padding: 4px 8px;
-  box-shadow: none;
+  padding: 0.3em 0.8em;
+  margin-right: 0.5em;
+  cursor: pointer;
 }
 
-/* === DIGITAL CLOCK === */
-.crt-theme .hour,
-.crt-theme .min,
-.crt-theme .countdown-label {
-  color: #00FF41 !important;
-}
-.crt-theme .dot {
-  color: #00FF41 !important;
-  animation: blink 1s infinite;
-}
-.crt-theme .digital-clock-widget {
-  flex-direction: row; 
-  justify-content: center;
-  align-items: center;
-  padding: 2rem; 
-  min-width: 800px;  
-  min-height: 275px; 
-}
-.crt-theme .digital-clock-widget .week div {
-  color: #006400;
-}
-.crt-theme .digital-clock-widget .week .active {
-  color: #00FF41;
-  background-color: transparent;
-  border: 1px dashed #00FF41;
-  padding: 0.5rem;
-  border-radius: 1rem;
-  font-weight: bold;
-}
-.crt-theme .digital-clock-widget .hour,
-.crt-theme .digital-clock-widget .min,
-.crt-theme .digital-clock-widget .ampm {
-  animation: crt-glow 1.8s infinite;
-}
 
-/* === PROGRESS BAR === */
-.crt-theme .progress-container {
-  background-color: #000 !important;
+.crt-theme .button,
+.crt-theme .remove-item-btn {
   border: 1px dashed #00FF41 !important;
-  border-radius: 1rem;
-  overflow: hidden;
+  background: transparent !important;
+  color: #00FF41 !important;
 }
-.crt-theme .progress-bar {
-  background-color: #00FF41 !important;
-  border-radius: 1rem;
-  transition: width 0.5s linear;
-  animation: crt-pulse 1.8s infinite ease-in-out;
+.crt-theme a {
+  color: #00FF41 !important;
 }
-@keyframes crt-pulse {
-  0%   { opacity: 0.85; box-shadow: 0 0 3px #00FF41, 0 0 5px #00FF41 inset; }
-  25%  { opacity: 1;    box-shadow: 0 0 6px #00FF41, 0 0 8px #00FF41 inset; }
-  50%  { opacity: 0.8;  box-shadow: 0 0 4px #00FF41, 0 0 6px #00FF41 inset; }
-  75%  { opacity: 1;    box-shadow: 0 0 7px #00FF41, 0 0 10px #00FF41 inset; }
-  100% { opacity: 0.85; box-shadow: 0 0 3px #00FF41, 0 0 5px #00FF41 inset; }
-}
-
-/* === SITE TITLE GLOW === */
 .crt-theme .site-title {
   color: #00FF41 !important;
-  font-family: 'Courier New', Courier, monospace !important;
-  text-shadow: 0 0 5px #00ff41;
+  text-shadow: 0 0 5px #00FF41;
 }
-.crt-theme .emoji {
+
+.crt-theme .theme-toggle-btn {
+  background: #000 !important;
   color: #00FF41 !important;
-  font-style: normal;
+  border: 1px dashed #00FF41 !important;
+  font-family: 'Courier New', monospace;
+  text-shadow: 0 0 4px #00FF41;
+  box-shadow: 0 0 6px #00FF41;
 }
