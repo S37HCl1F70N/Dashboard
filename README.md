@@ -17,16 +17,20 @@ A customizable, retro-themed daily dashboard for productivity, habit tracking, a
 ## Screenshots
 
 ### Dashboard (Dark Theme)
-![image1](image1)
+![image](https://github.com/user-attachments/assets/51623de7-3a8d-4325-989b-c0737ef78d88)
+
 
 ### Dashboard (CRT Theme)
-![image2](image2)
+![image](https://github.com/user-attachments/assets/efd12b8e-03ef-4a40-935f-66d7eb36b00a)
+
 
 ### Radar (CRT Theme)
-![image3](image3)
+![image](https://github.com/user-attachments/assets/d148b4bd-c12e-46a7-9d78-b4f9a7327b76)
+
 
 ### Radar (Dark Theme)
-![image4](image4)
+![image](https://github.com/user-attachments/assets/39140e8e-82e8-49b4-a97e-eccfc1a498f8)
+
 
 ---
 
