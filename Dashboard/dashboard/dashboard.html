@@ -1,21 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="crt-theme">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Daily Dashboard</title>
 
   <!-- Base & Theme Styles -->
-   <link rel="stylesheet" href="dashboard.css">
   <link rel="stylesheet" href="../base.css">
+    <!-- Page Specific -->
+  <link rel="stylesheet" href="dashboard.css">
+  
   <link rel="stylesheet" href="../responsive.css">
   <link rel="stylesheet" href="../crt-theme.css" id="theme-stylesheet">
 
-  <!-- Page Specific -->
-  <link rel="stylesheet" href="dashboard page/dashboard.css">
+
 </head>
 
-<body class="crt-theme">
+<body>
 
   <header class="top-bar">
     <div class="nav-left"></div>
@@ -24,7 +25,7 @@
       <a href="dashboard.html">🏠 Dashboard</a>
       <a href="../radar/radar.html">🌩️ Radar</a>
     </nav>
-    <button id="theme-toggle-btn" class="theme-toggle-btn">🎨 Switch Theme</button>
+    <button id="theme-toggle-btn" class="theme-toggle-btn">🎨</button>
   </header>
   
   <div id="widget-container">
@@ -84,7 +85,7 @@
   </div> <!-- End of widget-container -->
 
   <!-- Scripts -->
-  <script src="../base.js" defer></script>
-  <script src="./dashboard.js" defer></script>
+  <script src="../base.js"></script>
+  <script src="dashboard.js" defer></script>
 </body>
 </html>
