@@ -17,9 +17,13 @@ html, body {
   margin: 0;
   padding: 0;
   background-color: #121212;
-  color: #fff;
   font-family: "Hack", sans-serif;
   overflow-y: auto;
+  position: relative;
+  min-height: 100%;
+  overflow-y: auto;
+  z-index: 0;
+  
 }
 
 /* === GLOBAL LAYOUT CONTAINERS === */
@@ -32,24 +36,18 @@ html, body {
 
 /* === TOP BAR === */
 .top-bar {
-  background-color: #1e1e1e;
-  color: #fff;
   padding: 1rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 2px solid #444;
   position: sticky;
   top: 0;
   z-index: 999;
 }
-.nav-left {
-  flex: 1;
-}
+.nav-left { flex: 1; }
 .site-title {
   font-family: "Hack-Bold", sans-serif;
   font-size: 1.5rem;
-  color: #ff6347;
   margin: 0;
   text-align: center;
   flex: none;
@@ -61,40 +59,44 @@ html, body {
   gap: 1.5rem;
 }
 .nav-menu a {
-  color: #ddd;
   text-decoration: none;
   font-weight: bold;
   font-family: "Hack", sans-serif;
   transition: color 0.2s ease;
 }
-.nav-menu a:hover {
-  color: #ff6347;
-}
 
 /* === WIDGET BASE STYLE === */
 .widget {
-  background-color: #000;
-  color: #fff;
-  font-family: "Hack", sans-serif;
-  border-radius: 2rem;
-  padding: 1.5rem;
-  border: 0.5rem solid #2d2d2d;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-  min-width: 220px;
-  min-height: 120px;
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+
+  padding: 1.5rem;
+  border: 0.5rem solid;
+  border-radius: 2rem;
+  box-shadow: 0 0 10px;
   box-sizing: border-box;
+
+  min-width: 220px;
+  min-height: 180px; /* ADJUSTED from 120px */
+  width: 100%;        /* Ensure it grows/shrinks with layout */
+  max-width: 600px;   /* Avoids over-expanding on ultrawide screens */
 }
+
+.widget *:not(.progress-bar) {
+  max-width: 100%;
+}
+
+
 .widget h2 {
   margin-top: 0;
   font-size: 1.2rem;
   font-weight: bold;
-  color: #ff6347;
   text-align: center;
   margin-bottom: 1rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid #2d2d2d;
+  border-bottom: 1px solid;
 }
 .widget-content {
   flex-grow: 1;
@@ -103,23 +105,24 @@ html, body {
 }
 .widget .placeholder {
   text-align: center;
-  color: #777;
   padding: 1rem 0;
   font-style: italic;
 }
 .widget-row {
   display: flex;
-  justify-content: center;
-  gap: 2rem;
   flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 2rem;
   margin-bottom: 2rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 .widget-row.full-width {
   justify-content: center;
 }
 .widget-row > .widget {
-  flex: 1;
-  min-width: 300px;
+  flex: 1 1 300px; /* Shrink and grow dynamically */
   max-width: 600px;
 }
 
@@ -134,14 +137,11 @@ html, body {
   font-size: 0.9rem;
   padding: 0.5rem;
   border-radius: 0.5rem;
-  border: 1px solid #444;
-  background: #1e1e1e;
-  color: #fff;
+  border: 1px solid;
   width: calc(100% - 1rem);
   margin-bottom: 0.75rem;
   box-sizing: border-box;
 }
-
 .widget button {
   font-size: 0.9rem;
   padding: 0.6rem 1.2rem;
@@ -149,17 +149,25 @@ html, body {
 }
 
 .theme-toggle-btn {
-  margin-left: auto;
-  padding: 0.5rem 1rem;
-  font-size: 1rem;
-  background-color: #444;
-  color: #eee;
-  border: none;
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 9999;
+  padding: 0.4rem 0.8rem;
+  font-size: 1.2rem;
+  font-weight: bold;
   border-radius: 0.5rem;
+  border: none;
   cursor: pointer;
-  transition: background-color 0.3s ease;
+  backdrop-filter: blur(4px);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.2);
 }
 
 .theme-toggle-btn:hover {
-  background-color: #666;
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 }
+
