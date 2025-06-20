@@ -61,19 +61,30 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!startTimeInput || !endTimeInput || !countdownLabel || !progressBar) return;
     if (countdownInterval) clearInterval(countdownInterval);
 
-    const startValue = startTimeInput.value;
-    const endValue = endTimeInput.value;
-    if (!endValue) {
-      alert("Please set an end time for the countdown.");
-      return;
-    }
+    const startValue = startTimeInput.value.trim();
+    const endValue = endTimeInput.value.trim();
 
     const now = new Date();
-    let startTime = startValue ? new Date(now.toDateString() + " " + startValue) : new Date();
-    let endTime = new Date(now.toDateString() + " " + endValue);
-    if (endTime <= startTime) {
-      alert("End time must be after start time.");
-      return;
+    let startTime, endTime;
+
+    if (!startValue && !endValue) {
+      // 🕗 Default to 8-hour countdown from now
+      startTime = new Date(now);
+      endTime = new Date(now.getTime() + 8 * 60 * 60 * 1000); // +8 hours
+
+      // 🖋 Display the calculated times in the inputs
+      const formatTime = date => date.toTimeString().slice(0, 5);
+      startTimeInput.value = formatTime(startTime);
+      endTimeInput.value = formatTime(endTime);
+    } else {
+      // 📜 Use provided inputs if available
+      startTime = startValue ? new Date(now.toDateString() + " " + startValue) : new Date();
+      endTime = new Date(now.toDateString() + " " + endValue);
+
+      if (endTime <= startTime) {
+        alert("End time must be after start time.");
+        return;
+      }
     }
 
     const totalMillis = endTime - startTime;
@@ -104,6 +115,7 @@ document.addEventListener("DOMContentLoaded", () => {
     updateCountdownDisplay();
     countdownInterval = setInterval(updateCountdownDisplay, 1000);
   }
+
 
   function resumeCountdown(startMillis, endMillis) {
     if (countdownInterval) clearInterval(countdownInterval);
@@ -174,18 +186,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveLinksToStorage = () => {
     const links = Array.from(linkList.children).map(li => {
-      const a = li.querySelector("a");
+      const btn = li.querySelector(".quick-link-btn");
       return {
-        name: a.textContent,
-        url: a.href
+        name: btn.textContent,
+        url: btn.getAttribute("data-url")
       };
     });
     saveToStorage("quickLinks", links);
-  };
-
-  const loadLinksFromStorage = () => {
-    const stored = getFromStorage("quickLinks") || [];
-    stored.forEach(link => addLink(link.name, link.url));
   };
 
   const addLink = (name, url) => {
@@ -193,12 +200,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const btn = document.createElement("button");
     btn.textContent = name;
-    btn.classList.add("quick-link-btn");
+    btn.className = "quick-link-btn";
+    btn.setAttribute("data-url", url);
     btn.addEventListener("click", () => window.open(url, "_blank"));
 
     const removeBtn = document.createElement("button");
     removeBtn.textContent = "✕";
-    removeBtn.classList.add("remove-item-btn");
+    removeBtn.className = "remove-item-btn";
     removeBtn.addEventListener("click", () => {
       li.remove();
       saveLinksToStorage();
@@ -209,12 +217,26 @@ document.addEventListener("DOMContentLoaded", () => {
     linkList.appendChild(li);
   };
 
+  const loadLinksFromStorage = () => {
+    const stored = getFromStorage("quickLinks") || [];
+    stored.forEach(link => addLink(link.name, link.url));
+    if (stored.length > 0) saveLinksToStorage(); // ensure persistence if DOM was cleared
+  };
 
   if (addLinkBtn) {
     addLinkBtn.addEventListener("click", () => {
       const name = linkNameInput.value.trim();
       const url = linkUrlInput.value.trim();
       if (!name || !url) return;
+
+      // Optional: Prevent duplicates
+      const exists = Array.from(linkList.children).some(li => 
+        li.querySelector(".quick-link-btn").textContent === name
+      );
+      if (exists) {
+        alert("A link with this name already exists.");
+        return;
+      }
 
       addLink(name, url);
       saveLinksToStorage();
@@ -225,6 +247,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   loadLinksFromStorage();
+
 
   // --- Log ---
   console.log("All widget functionalities initialized.");
