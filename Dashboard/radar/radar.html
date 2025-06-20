@@ -51,24 +51,34 @@
   <div class="grid-container">
     <div class="zone">
       <div class="zone-title">Mobile, AL (MOB)</div>
-      <img src="https://radar.weather.gov/ridge/standard/KEVX_loop.gif" alt="Radar1">
+      <img casss="radar-img" src="https://radar.weather.gov/ridge/standard/KEVX_loop.gif" alt="Radar1">
       <button class="button" onclick="window.open('https://radar.weather.gov/station/MOB/standard', '_blank')">Open Full Page</button>
     </div>
     <div class="zone">
       <div class="zone-title">Tallahassee, FL (TLH)</div>
-      <img src="https://radar.weather.gov/ridge/standard/KVAX_loop.gif" alt="Radar2">
+      <img casss="radar-img" src="https://radar.weather.gov/ridge/standard/KVAX_loop.gif" alt="Radar2">
       <button class="button" onclick="window.open('https://radar.weather.gov/station/TLH/standard', '_blank')">Open Full Page</button>
     </div>
     <div class="zone">
       <div class="zone-title">Tampa, FL (TBW)</div>
-      <img src="https://radar.weather.gov/ridge/standard/KTBW_loop.gif" alt="Radar3">
+      <img casss="radar-img" src="https://radar.weather.gov/ridge/standard/KTBW_loop.gif" alt="Radar3">
       <button class="button" onclick="window.open('https://radar.weather.gov/station/TBW/standard', '_blank')">Open Full Page</button>
     </div>
     <div class="zone">
       <div class="zone-title">Miami, FL (AMX)</div>
-      <img src="https://radar.weather.gov/ridge/standard/KAMX_loop.gif" alt="Radar4">
+      <img casss="radar-img" src="https://radar.weather.gov/ridge/standard/KAMX_loop.gif" alt="Radar4">
       <button class="button" onclick="window.open('https://radar.weather.gov/station/AMX/standard', '_blank')">Open Full Page</button>
     </div>
+  </div>
+  <div class="radar-embed-container">
+    <iframe 
+      src="https://radar.weather.gov/region/ser"
+      class="radar-iframe"
+      title="NOAA Southeast Radar"
+      loading="lazy"
+      scrolling="no"
+      frameborder="0"
+    ></iframe>
   </div>
 
   <script src="../base.js"></script>
