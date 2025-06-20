@@ -112,3 +112,22 @@ html.radar-page, body.radar-page {
   cursor: pointer;
   transition: all 0.2s ease-in-out;
 }
+
+.radar-embed-container {
+  display: block;
+  width: 100%;
+  height: 600px; /* Adjust height as desired */
+  margin-top: 2rem;
+  padding-bottom: 2rem;
+  overflow: hidden;
+  border-radius: 1rem;
+  box-shadow: 0 0 12px rgb(183, 0, 255);
+  position: relative;
+  z-index: 0;
+}
+
+.radar-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
