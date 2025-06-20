@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   if (!document.body.classList.contains("radar-page")) return;
 
+  // === CLOCK BAR ===
   function updateClock() {
     const now = new Date();
     const localTime = now.toLocaleTimeString();
@@ -13,6 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setInterval(updateClock, 1000);
   updateClock();
 
+  // === NOAA ALERTS ===
   const alertFeed = "https://api.weather.gov/alerts/active?area=FL";
   async function loadAlerts() {
     try {
@@ -45,6 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setInterval(loadAlerts, 300000);
   loadAlerts();
 
+  // === FORECAST ===
   const forecastFeed = "https://api.weather.gov/gridpoints/MOB/60,57/forecast";
   async function loadForecast() {
     try {
@@ -72,6 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setInterval(loadForecast, 300000);
   loadForecast();
 
+  // === AUTO SCROLL ANIMATION ===
   function applyScrollSpeed(id, pixelsPerSecond = 60) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -86,6 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // === CURRENT CONDITIONS ===
   async function loadConditions() {
     const conditionsFeed = "https://api.weather.gov/stations/KVPS/observations/latest";
     try {
@@ -112,4 +117,18 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   setInterval(loadConditions, 300000);
   loadConditions();
+
+  // === 🆕 RADAR IMAGE AUTO-REFRESH (inserted here) ===
+  function refreshRadarImages() {
+    const radarImgs = document.querySelectorAll(".radar-img"); // Ensure <img class="radar-img" data-src="...">
+    const timestamp = new Date().getTime();
+
+    radarImgs.forEach(img => {
+      const baseUrl = img.dataset.src || img.src.split("?")[0];
+      img.src = `${baseUrl}?t=${timestamp}`;
+    });
+  }
+
+  setInterval(refreshRadarImages, 30000); // Every 30 seconds
+  refreshRadarImages();
 });
