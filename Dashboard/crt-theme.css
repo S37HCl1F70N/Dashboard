@@ -96,3 +96,7 @@
   text-shadow: 0 0 4px #00FF41;
   box-shadow: 0 0 6px #00FF41;
 }
+
+.crt-theme .radar-embed-container {
+  box-shadow: 0 0 15px #00FF41;
+}
