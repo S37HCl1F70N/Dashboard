@@ -56,20 +56,27 @@ Open `dashboard/dashboard.html` or `radar/radar.html` directly in your web brows
 
 ```
 Dashboard/
-├── base.css            # Global styles and layout
-├── base.js             # Theme toggle and shared JS
-├── crt-theme.css       # CRT theme styles
-├── dark-theme.css      # Dark theme styles
-├── responsive.css      # Responsive design rules
-├── fonts/              # Custom font assets
-│
-├── dashboard/
-│   ├── dashboard.html  # Main dashboard page
-│   └── dashboard.js    # Dashboard widgets logic
-│
-└── radar/
-    ├── radar.html      # NOAA radar dashboard
-    └── radar.css       # Radar-specific styles
+├── css                                   # Global styles and layout
+|    ├── dashboard
+|        └── dashboard.css                # Dashboard-specific styles
+|    ├── radar
+|        └── radar.css                    # Radar-specific styles
+|    ├── themes
+|        ├── crt-theme.css                # CRT theme styles
+|        └── dark-theme.css               # Dark theme styles
+|    ├── base.css                         # Universal page styles
+|    └──  responsive.css                  # Responsive design rules
+├── html           
+|    ├── dashboard.html                   # Main dashboard page
+|    ├── radar.html                       # NOAA radar dashboard
+|    └──  ...
+├── js                                
+|    ├── dashboard.js                     # Dashboard widgets logic
+|    ├── radar.js                         # Radar page logic
+|    ├──base.js                           # Theme toggle and shared JS
+|    └──  ...
+└── fonts/                                # Custom font assets
+
 ```
 
 ---
