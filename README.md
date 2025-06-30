@@ -58,12 +58,12 @@ Open `dashboard/dashboard.html` or `radar/radar.html` directly in your web brows
 Dashboard/
 ├── css                                   # Global styles and layout
 |    ├── dashboard
-|        └── dashboard.css                # Dashboard-specific styles
+|    |   └── dashboard.css                # Dashboard-specific styles
 |    ├── radar
-|        └── radar.css                    # Radar-specific styles
+|    |   └── radar.css                    # Radar-specific styles
 |    ├── themes
-|        ├── crt-theme.css                # CRT theme styles
-|        └── dark-theme.css               # Dark theme styles
+|    |   ├── crt-theme.css                # CRT theme styles
+|    |   └── dark-theme.css               # Dark theme styles
 |    ├── base.css                         # Universal page styles
 |    └──  responsive.css                  # Responsive design rules
 ├── html           
