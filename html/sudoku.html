@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en" class="crt-theme">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sudoku</title>
+
+  <!-- Base & Theme Styles -->
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/responsive.css">
+  <link rel="stylesheet" href="../css/themes/crt-theme.css" id="theme-stylesheet">
+
+  <!-- Page Specific -->
+  <link rel="stylesheet" href="../css/sudoku/sudoku.css">
+</head>
+
+<body>
+  <header class="top-bar">
+    <div class="nav-left"></div>
+    <h1 class="site-title">Master Seth's Command Console</h1>
+    <nav class="nav-menu">
+      <a href="dashboard.html">🏠 Dashboard</a>
+      <a href="radar.html">🌩️ Radar</a>
+      <a href="sudoku.html" class="active">🧩 Sudoku</a>
+    </nav>
+    <button id="theme-toggle-btn" class="theme-toggle-btn">🎨</button>
+  </header>
+
+  <main class="sudoku-container">
+    <h2 class="sudoku-title">Sudoku</h2>
+    <div id="sudoku-board" class="sudoku-board"></div>
+    <div class="sudoku-controls">
+      <button id="new-game" class="sudoku-btn">New Game</button>
+    </div>
+  </main>
+
+  <script src="../js/base.js"></script>
+  <script src="../js/sudoku.js"></script>
+</body>
+</html>
