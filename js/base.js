@@ -8,15 +8,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const DARK_THEME = "dark-theme";
 
   // Determine correct path to CSS (adjust if structure changes)
-  function getThemePath(theme) {
-    return `../${theme}.css`;
+  function getThemePath(themeName) {
+    // Assumes theme files are in css/themes/ directory, relative to the HTML file
+    return `../css/themes/${themeName}.css`;
   }
 
   // Apply theme to <html> and stylesheet link
   function applyTheme(themeName) {
     html.classList.remove(CRT_THEME, DARK_THEME);
     html.classList.add(themeName);
-    themeStylesheet.href = getThemePath(themeName);
+    themeStylesheet.href = getThemePath(themeName); // getThemePath now uses themeName
     localStorage.setItem(THEME_KEY, themeName);
   }
 

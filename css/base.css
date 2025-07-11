@@ -1,15 +1,15 @@
 /* === FONT DECLARATIONS === */
 @font-face {
   font-family: "FX_LED";
-  src: url("fonts/FX-LED.ttf");
+  src: url("../fonts/FX-LED.ttf");
 }
 @font-face {
   font-family: "Hack-Bold";
-  src: url("fonts/Hack-Bold.ttf");
+  src: url("../fonts/Hack-Bold.ttf");
 }
 @font-face {
   font-family: "Hack";
-  src: url("fonts/Hack-Regular.ttf");
+  src: url("../fonts/Hack-Regular.ttf");
 }
 
 /* === HTML & BODY RESET === */
