@@ -1,0 +1,88 @@
+
+
+.sudoku-container {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sudoku-title {
+  font-size: 1.75rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.sudoku-board {
+  display: grid;
+  grid-template-columns: repeat(9, 3rem);
+  grid-template-rows: repeat(9, 3rem);
+  gap: 0; /* remove if using border for spacing */
+  padding: 5px;
+  background: #111;
+  border-radius: 6px;
+}
+
+.sudoku-board input {
+  width: 3rem;
+  height: 3rem;
+  font-size: 1.25rem;
+  text-align: center;
+  background: #1e1e1e;
+  color: #00ff90;
+  border: 1px solid #333;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.sudoku-board input:nth-child(3n) {
+  border-right: 2px solid #3d3d3d; /* vertical block right-edge */
+}
+
+.sudoku-board input:nth-child(1),
+.sudoku-board input:nth-child(10),
+.sudoku-board input:nth-child(19),
+.sudoku-board input:nth-child(28),
+.sudoku-board input:nth-child(37),
+.sudoku-board input:nth-child(46),
+.sudoku-board input:nth-child(55),
+.sudoku-board input:nth-child(64),
+.sudoku-board input:nth-child(73) {
+  border-left: 2px solid #3d3d3d; /* vertical block left-edge */
+}
+
+
+/* === BOLD BORDER every 3rd ROW === */
+.sudoku-board input:nth-child(n+19):nth-child(-n+27),
+.sudoku-board input:nth-child(n+46):nth-child(-n+54),
+.sudoku-board input:nth-child(n+73):nth-child(-n+81) {
+  border-bottom: 2px solid #3d3d3d; /* horizontal block bottom-edge */
+}
+
+.sudoku-board input:nth-child(-n+9) {
+  border-top: 2px solid #3d3d3d;
+}
+
+.sudoku-board input:disabled {
+  background: #2c2c2c;
+  color: var(--disabled-color, #bbb);
+}
+
+.sudoku-controls {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.sudoku-controls .button {
+  padding: 0.5rem 1.25rem;
+  font-size: 1rem;
+  background: var(--accent, #007acc);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.sudoku-controls .button:hover {
+  background: var(--accent-hover, #005fa3);
+}
