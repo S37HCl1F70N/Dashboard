@@ -1,40 +1,110 @@
 <!DOCTYPE html>
-<html lang="en" class="crt-theme">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sudoku</title>
-
-  <!-- Base & Theme Styles -->
-  <link rel="stylesheet" href="../css/base.css">
-  <link rel="stylesheet" href="../css/responsive.css">
-  <link rel="stylesheet" href="../css/themes/crt-theme.css" id="theme-stylesheet">
-
-  <!-- Page Specific -->
-  <link rel="stylesheet" href="../css/sudoku/sudoku.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro CRT Sudoku</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/responsive.css">
+    <link rel="stylesheet" href="../css/themes/crt-theme.css" id="theme-stylesheet">
+    <link rel="stylesheet" href="../css/sudoku/sudoku.css">
 </head>
 
 <body>
-  <header class="top-bar">
-    <div class="nav-left"></div>
-    <h1 class="site-title">Master Seth's Command Console</h1>
-    <nav class="nav-menu">
-      <a href="dashboard.html">🏠 Dashboard</a>
-      <a href="radar.html">🌩️ Radar</a>
-      <a href="sudoku.html" class="active">🧩 Sudoku</a>
-    </nav>
-    <button id="theme-toggle-btn" class="theme-toggle-btn">🎨</button>
-  </header>
-
-  <main class="sudoku-container">
-    <h2 class="sudoku-title">Sudoku</h2>
-    <div id="sudoku-board" class="sudoku-board"></div>
-    <div class="sudoku-controls">
-      <button id="new-game" class="sudoku-btn">New Game</button>
+    <div class="main-wrapper">
+        <h1>SUDOKU</h1>
+        <div class="top-info">
+            <div id="difficulty-display">DIFFICULTY: MEDIUM</div>
+            <div class="game-stats">
+                <div id="timer">TIME: 00:00</div>
+                <div id="error-counter" class="error-counter">ERRORS: 0</div>
+            </div>
+        </div>
+        <div class="game-area">
+            <div class="sudoku-grid" id="sudoku-grid">
+                <!-- Cells will be generated here by JavaScript -->
+            </div>
+            <div class="right-panel">
+                <div class="mode-toggle-buttons">
+                    <button class="control-button active" id="normal-mode-toggle">Normal</button>
+                    <button class="control-button" id="candidate-mode-toggle">Candidate</button>
+                </div>
+                <div class="number-pad" id="number-pad">
+                    <!-- Number buttons will be generated here by JavaScript -->
+                </div>
+                <div class="action-buttons">
+                    <button class="control-button" id="erase-button">X</button>
+                    <button class="control-button" id="undo-button">Undo</button>
+                    <button class="control-button" id="redo-button">Redo</button>
+                </div>
+                <label class="auto-candidate-checkbox">
+                    <input type="checkbox" id="auto-candidate-checkbox-input">
+                    Auto Candidate Mode
+                </label>
+            </div>
+        </div>
+        <div class="bottom-controls">
+            <button class="control-button" id="new-game-button">NEW GAME</button>
+            <button class="control-button" id="settings-button">SETTINGS</button>
+        </div>
     </div>
-  </main>
 
-  <script src="../js/base.js"></script>
-  <script src="../js/sudoku.js"></script>
+    <div id="settings-panel" class="settings-panel">
+        <button class="close-settings-button" id="close-settings-button">&times;</button>
+        <h2>SETTINGS</h2>
+
+        <div class="difficulty-selection">
+            <h3>DIFFICULTY</h3>
+            <div class="difficulty-buttons">
+                <button class="difficulty-button" data-difficulty="easy" id="difficulty-easy">EASY</button>
+                <button class="difficulty-button" data-difficulty="medium" id="difficulty-medium">MEDIUM</button>
+                <button class="difficulty-button" data-difficulty="hard" id="difficulty-hard">HARD</button>
+            </div>
+        </div>
+
+        <div class="setting-item">
+            <label for="check-guesses">Check guesses when entered</label>
+            <button class="setting-toggle" id="check-guesses-toggle">OFF</button>
+        </div>
+        <div class="setting-item">
+            <label for="show-error-counter">Show error counter</label>
+            <button class="setting-toggle" id="show-error-counter-toggle">ON</button>
+        </div>
+        <div class="setting-item">
+            <label for="show-timer">Show timer</label>
+            <button class="setting-toggle" id="show-timer-toggle">ON</button>
+        </div>
+        <div class="setting-item">
+            <label for="highlight-conflicts">Highlight conflicts</label>
+            <button class="setting-toggle" id="highlight-conflicts-toggle">ON</button>
+        </div>
+        <div class="setting-item">
+            <label for="highlight-row-col">Highlight row and column</label>
+            <button class="setting-toggle" id="highlight-row-col-toggle">ON</button>
+        </div>
+        <div class="setting-item">
+            <label for="highlight-box">Highlight box</label>
+            <button class="setting-toggle" id="highlight-box-toggle">ON</button>
+        </div>
+        <div class="setting-item">
+            <label for="highlight-identical">Highlight identical numbers</label>
+            <button class="setting-toggle" id="highlight-identical-toggle">ON</button>
+        </div>
+        <div class="setting-item">
+            <label for="play-sound-solve">Play sound on solve</label>
+            <button class="setting-toggle" id="play-sound-solve-toggle">ON</button>
+        </div>
+    </div>
+
+    <div id="message-box" class="message-box">
+        <p id="message-text"></p>
+        <button id="message-ok-button">OK</button>
+    </div>
+
+    <audio id="solve-sound" src="data:audio/wav;base64,UklGRl9OCQBXQVZFZm10IBAAAAABAAEARJxAAgAAAEAAgABAAgAAABAAAEABAAACABAAADoCAADzBAACgBAAAIAAAACAAABBAAAgAAAAICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgAAAAAAAAA"></audio>
+    
+    <script src="../js/base.js"></script>
+    <script src="../js/sudoku.js"></script>
 </body>
 </html>
