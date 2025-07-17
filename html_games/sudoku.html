@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro CRT Sudoku</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    
+    <style>
+        /* CSS Variables for theme */
+        :root {
+            --crt-bg-color: #1a1a1a;
+            --crt-text-color: #00ff00; /* Neon Green */
+            --crt-accent-color: #ffbf00; /* Amber */
+            --crt-border-color: #008000; /* Darker Green */
+            --crt-shadow-color: #00ff00b3;
+            --crt-error-color: #ff0000;
+            --crt-highlight-color: #00ff0065;
+            --crt-conflict-color: #ff000066;
+            --crt-selected-color: #00ffff4d; /* Cyan for selection */
+            --crt-identical-color: #ff910093; /* Yellow for identical */
+        }
+
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: var(--crt-bg-color);
+            color: var(--crt-text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            overflow: auto; /* Allow scrolling for smaller screens */
+            position: relative; /* For scanlines */
+            box-sizing: border-box;
+            animation: flicker 0.1s infinite alternate; /* Subtle flicker */
+        }
+
+        /* CRT Scanline Effect for body */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent 0,
+                rgba(0, 0, 0, 0.2) 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* Main container for the whole game layout */
+        .main-wrapper {
+            border: 5px solid var(--crt-border-color);
+            border-radius: 15px;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            box-shadow: 0 0 20px var(--crt-shadow-color), inset 0 0 10px var(--crt-shadow-color);
+            text-align: center;
+            max-width: 900px; /* Increased max-width to accommodate side panel */
+            width: 100%;
+            margin-bottom: 20px;
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        h1 {
+            color: var(--crt-accent-color);
+            text-shadow: 0 0 8px var(--crt-accent-color);
+            margin-bottom: 10px;
+            font-size: 1.8em;
+        }
+
+        .top-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+            text-shadow: 0 0 5px var(--crt-text-color);
+            padding: 0 10px;
+        }
+
+        .game-stats {
+            display: flex;
+            gap: 20px;
+        }
+
+        .error-counter {
+            color: var(--crt-error-color);
+            text-shadow: 0 0 5px var(--crt-error-color);
+        }
+
+        .game-area {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: flex-start; /* Align items to the top */
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+        }
+
+        .sudoku-grid {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            grid-template-rows: repeat(9, 1fr);
+            width: 100%;
+            max-width: 500px; /* Max width for the grid */
+            aspect-ratio: 1 / 1; /* Keep it square */
+            border: 4px solid var(--crt-border-color);
+            box-shadow: 0 0 10px var(--crt-shadow-color);
+            flex-shrink: 0; /* Prevent grid from shrinking */
+        }
+
+        .cell {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid var(--crt-border-color);
+            font-size: 1.5em;
+            cursor: pointer;
+            position: relative;
+            box-sizing: border-box;
+            user-select: none; /* Prevent text selection */
+        }
+
+        /* Thicker borders for 3x3 blocks */
+        .cell:nth-child(3n) { border-right-width: 3px; }
+        .cell:nth-child(9n) { border-right-width: 1px; } /* Reset for end of row */
+        .cell:nth-child(n + 19):nth-child(-n + 27),
+        .cell:nth-child(n + 46):nth-child(-n + 54) {
+            border-bottom-width: 3px;
+        }
+        .cell:nth-child(n + 73):nth-child(-n + 81) {
+            border-bottom-width: 1px; /* Reset for last row */
+        }
+
+        .cell.fixed {
+            color: var(--crt-accent-color);
+            font-weight: bold;
+            background-color: rgba(0, 0, 0, 0.3);
+        }
+
+        .cell.selected {
+            background-color: var(--crt-selected-color);
+        }
+
+        .cell.highlight-row-col-box {
+            background-color: var(--crt-highlight-color);
+        }
+
+        .cell.highlight-identical {
+            background-color: var(--crt-identical-color);
+        }
+
+        .cell.conflict {
+            background-color: var(--crt-conflict-color);
+            color: var(--crt-error-color);
+        }
+
+        .cell.correct-guess {
+            color: var(--crt-text-color); /* Green for correct */
+        }
+
+        .cell.incorrect-guess {
+            color: var(--crt-error-color); /* Red for incorrect */
+        }
+
+        .cell .value {
+            font-size: 1.5em;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .cell .candidates {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            width: 100%;
+            height: 100%;
+            font-size: 0.6em;
+            color: rgba(0, 255, 0, 0.6); /* Lighter green for candidates */
+            line-height: 1; /* Adjust line height for candidates */
+        }
+
+        .cell .candidate-num {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1px;
+        }
+
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 15px;
+            border: 2px solid var(--crt-border-color);
+            border-radius: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 10px var(--crt-shadow-color);
+            min-width: 200px;
+            max-width: 250px;
+            flex-grow: 1; /* Allow it to grow if space permits */
+        }
+
+        .mode-toggle-buttons {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .mode-toggle-buttons .control-button {
+            flex: 1;
+            padding: 8px 10px;
+            font-size: 0.8em;
+        }
+
+        .mode-toggle-buttons .control-button.active {
+            background-color: var(--crt-text-color);
+            color: var(--crt-bg-color);
+        }
+
+        .number-pad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .number-button {
+            width: 100%;
+            padding-bottom: 100%; /* Makes buttons square */
+            position: relative;
+            font-size: 1.5em;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            /* CRT Numpad Theme */
+            background-color: rgba(200, 200, 200, 0.9); /* Light gray, almost white */
+            color: var(--crt-bg-color); /* Dark text for contrast */
+            border: 2px solid var(--crt-text-color); /* Neon green border */
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.3); /* Subtle outer glow */
+            overflow: hidden; /* Hide overflowing scanlines */
+        }
+
+        /* Add scanline effect to number buttons */
+        .number-pad .number-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent 0,
+                rgba(0, 0, 0, 0.1) 1px, /* Subtle dark scanline */
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 1; /* Above button content but below number span */
+        }
+
+        .number-pad .number-button span {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2; /* Ensure number is above scanlines */
+        }
+
+        /* Hover state for number buttons */
+        .number-pad .number-button:hover {
+            background-color: var(--crt-text-color); /* Neon green on hover */
+            color: var(--crt-bg-color); /* Dark text on hover */
+            box-shadow: 0 0 15px var(--crt-shadow-color);
+            transform: translateY(-2px);
+        }
+
+
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .action-buttons .control-button {
+            flex: 1;
+            padding: 8px 10px;
+            font-size: 0.8em;
+        }
+
+        .auto-candidate-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.8em;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+
+        .auto-candidate-checkbox input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--crt-text-color);
+            border-radius: 4px;
+            background-color: rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            position: relative;
+            outline: none;
+        }
+
+        .auto-candidate-checkbox input[type="checkbox"]:checked {
+            background-color: var(--crt-text-color);
+            border-color: var(--crt-accent-color);
+        }
+
+        .auto-candidate-checkbox input[type="checkbox"]:checked::after {
+            content: '✔';
+            color: var(--crt-bg-color);
+            font-size: 1.2em;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .bottom-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+        }
+
+        /* General button styles for centering and preventing wrap */
+        .control-button, .setting-toggle, .difficulty-button {
+            background-color: var(--crt-border-color);
+            color: var(--crt-bg-color);
+            border: 2px solid var(--crt-text-color);
+            border-radius: 8px;
+            padding: 10px 18px; /* Increased horizontal padding */
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.85em; /* Slightly reduced font size for better fit */
+            cursor: pointer;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 8px var(--crt-shadow-color);
+            transition: all 0.1s ease-in-out;
+            display: flex; /* Ensure flexbox for centering */
+            justify-content: center; /* Center horizontally */
+            align-items: center; /* Center vertically */
+            white-space: nowrap; /* Prevent text from wrapping */
+            overflow: hidden; /* Hide any overflowing content */
+            text-overflow: clip; /* Prevent ellipsis, just clip */
+            min-width: unset; /* Allow buttons to shrink/grow based on content */
+        }
+
+        .control-button:hover, .setting-toggle:hover, .difficulty-button:hover {
+            background-color: var(--crt-text-color);
+            color: var(--crt-bg-color);
+            box-shadow: 0 0 15px var(--crt-shadow-color);
+            transform: translateY(-2px);
+        }
+
+        .control-button:active, .setting-toggle:active, .difficulty-button:active {
+            transform: translateY(0);
+            box-shadow: 0 0 5px var(--crt-shadow-color);
+        }
+
+        /* Specific adjustments for mode toggle buttons */
+        .mode-toggle-buttons .control-button {
+            flex: 1;
+            padding: 8px 12px; /* Adjusted padding */
+            font-size: 0.75em; /* Further reduced font size for these */
+        }
+
+        /* Specific adjustments for action buttons */
+        .action-buttons .control-button {
+            flex: 1;
+            padding: 8px 12px; /* Adjusted padding */
+            font-size: 0.75em; /* Further reduced font size for these */
+        }
+
+
+        .settings-panel {
+            position: fixed;
+            top: 0;
+            right: -300px; /* Hidden by default */
+            width: 280px;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            border-left: 5px solid var(--crt-border-color);
+            box-shadow: -5px 0 20px var(--crt-shadow-color);
+            padding: 20px;
+            box-sizing: border-box;
+            transition: right 0.3s ease-in-out;
+            z-index: 100;
+            overflow-y: auto;
+        }
+
+        .settings-panel.open {
+            right: 0;
+        }
+
+        .settings-panel h2 {
+            color: var(--crt-accent-color);
+            text-shadow: 0 0 8px var(--crt-accent-color);
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+
+        .setting-item label {
+            flex-grow: 1;
+            text-align: left;
+        }
+
+        .setting-toggle {
+            width: 80px;
+            padding: 8px 10px;
+            font-size: 0.8em;
+        }
+
+        .setting-toggle.on, .difficulty-button.selected-difficulty {
+            background-color: var(--crt-text-color);
+            color: var(--crt-bg-color);
+        }
+
+        .setting-toggle.off {
+            background-color: var(--crt-border-color);
+            color: var(--crt-text-color);
+        }
+
+        .close-settings-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: var(--crt-text-color);
+            font-size: 1.5em;
+            cursor: pointer;
+            text-shadow: 0 0 5px var(--crt-text-color);
+        }
+
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.9);
+            border: 3px solid var(--crt-accent-color);
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 0 20px var(--crt-shadow-color);
+            text-align: center;
+            font-size: 1.2em;
+            z-index: 1000;
+            display: none; /* Hidden by default */
+            color: var(--crt-text-color);
+            text-shadow: 0 0 5px var(--crt-text-color);
+        }
+
+        .message-box button {
+            margin-top: 20px;
+            background-color: var(--crt-accent-color);
+            color: var(--crt-bg-color);
+            border: 2px solid var(--crt-text-color);
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1em;
+            cursor: pointer;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 8px var(--crt-shadow-color);
+            transition: all 0.1s ease-in-out;
+        }
+
+        .message-box button:hover {
+            background-color: var(--crt-text-color);
+            color: var(--crt-bg-color);
+        }
+
+        .difficulty-selection {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            border-top: 1px solid var(--crt-border-color);
+            padding-top: 20px;
+        }
+
+        .difficulty-buttons {
+            display: flex;
+            justify-content: space-around;
+            gap: 10px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .game-area {
+                flex-direction: column; /* Stack grid and right panel on smaller screens */
+                align-items: center;
+            }
+            .right-panel {
+                width: 100%;
+                max-width: 500px; /* Match grid max-width */
+            }
+            .sudoku-grid {
+                max-width: 90vw; /* Make grid take more width on small screens */
+            }
+            .main-wrapper {
+                padding: 15px;
+            }
+            h1 {
+                font-size: 1.6em;
+            }
+            .top-info {
+                flex-direction: column;
+                gap: 5px;
+            }
+            .game-stats {
+                gap: 10px;
+            }
+            .control-button, .number-button, .setting-toggle, .difficulty-button {
+                font-size: 0.75em;
+                padding: 8px 12px;
+                min-width: unset;
+            }
+            .number-button {
+                font-size: 1.2em;
+            }
+            .settings-panel {
+                width: 100%; /* Full width on small screens */
+                right: -100%;
+            }
+            .settings-panel.open {
+                right: 0;
+            }
+            .difficulty-button {
+                flex: 1; /* Make buttons take equal space */
+            }
+        }
+
+        @media (max-width: 480px) {
+            .main-wrapper {
+                padding: 10px;
+            }
+            h1 {
+                font-size: 1.4em;
+            }
+            .game-info, .setting-item {
+                font-size: 0.8em;
+            }
+            .cell {
+                font-size: 1.1em;
+            }
+            .cell .candidates {
+                font-size: 0.45em;
+            }
+            .number-button {
+                font-size: 1em;
+            }
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.99; } /* Very subtle flicker */
+        }
+    </style>
+
+<body>
+
+    <div class="main-wrapper">
+        <h1>SUDOKU</h1>
+        <div class="top-info">
+            <div id="difficulty-display">DIFFICULTY: MEDIUM</div>
+            <div class="game-stats">
+                <div id="timer">TIME: 00:00</div>
+                <div id="error-counter" class="error-counter">ERRORS: 0</div>
+            </div>
+        </div>
+        <div class="game-area">
+            <div class="sudoku-grid" id="sudoku-grid">
+                <!-- Cells will be generated here by JavaScript -->
+            </div>
+            <div class="right-panel">
+                <div class="mode-toggle-buttons">
+                    <button class="control-button active" id="normal-mode-toggle">Normal</button>
+                    <button class="control-button" id="candidate-mode-toggle">Candidate</button>
+                </div>
+                <div class="number-pad" id="number-pad">
+                    <!-- Number buttons will be generated here by JavaScript -->
+                </div>
+                <div class="action-buttons">
+                    <button class="control-button" id="erase-button">X</button>
+                    <button class="control-button" id="undo-button">Undo</button>
+                    <button class="control-button" id="redo-button">Redo</button>
+                </div>
+                <label class="auto-candidate-checkbox">
+                    <input type="checkbox" id="auto-candidate-checkbox-input">
+                    Auto Candidate Mode
+                </label>
+            </div>
+        </div>
+        <div class="bottom-controls">
+            <button class="control-button" id="new-game-button">NEW GAME</button>
+            <button class="control-button" id="settings-button">SETTINGS</button>
+        </div>
+    </div>
+
+    <div id="settings-panel" class="settings-panel">
+        <button class="close-settings-button" id="close-settings-button">&times;</button>
+        <h2>SETTINGS</h2>
+
+        <div class="difficulty-selection">
+            <h3>DIFFICULTY</h3>
+            <div class="difficulty-buttons">
+                <button class="difficulty-button" data-difficulty="easy" id="difficulty-easy">EASY</button>
+                <button class="difficulty-button" data-difficulty="medium" id="difficulty-medium">MEDIUM</button>
+                <button class="difficulty-button" data-difficulty="hard" id="difficulty-hard">HARD</button>
+            </div>
+        </div>
+
+        <div class="setting-item">
+            <label for="check-guesses">Check guesses when entered</label>
+            <button class="setting-toggle" id="check-guesses-toggle">OFF</button>
+        </div>
+        <div class="setting-item">
+            <label for="show-error-counter">Show error counter</label>
+            <button class="setting-toggle" id="show-error-counter-toggle">ON</button>
+        </div>
+        <div class="setting-item">
+            <label for="show-timer">Show timer</label>
+            <button class="setting-toggle" id="show-timer-toggle">ON</button>
+        </div>
+        <div class="setting-item">
+            <label for="highlight-conflicts">Highlight conflicts</label>
+            <button class="setting-toggle" id="highlight-conflicts-toggle">ON</button>
+        </div>
+        <div class="setting-item">
+            <label for="highlight-row-col">Highlight row and column</label>
+            <button class="setting-toggle" id="highlight-row-col-toggle">ON</button>
+        </div>
+        <div class="setting-item">
+            <label for="highlight-box">Highlight box</label>
+            <button class="setting-toggle" id="highlight-box-toggle">ON</button>
+        </div>
+        <div class="setting-item">
+            <label for="highlight-identical">Highlight identical numbers</label>
+            <button class="setting-toggle" id="highlight-identical-toggle">ON</button>
+        </div>
+        <div class="setting-item">
+            <label for="play-sound-solve">Play sound on solve</label>
+            <button class="setting-toggle" id="play-sound-solve-toggle">ON</button>
+        </div>
+    </div>
+
+    <div id="message-box" class="message-box">
+        <p id="message-text"></p>
+        <button id="message-ok-button">OK</button>
+    </div>
+
+    <audio id="solve-sound" src="data:audio/wav;base64,UklGRl9OCQBXQVZFZm10IBAAAAABAAEARJxAAgAAAEAAgABAAgAAABAAAEABAAACABAAADoCAADzBAACgBAAAIAAAACAAABBAAAgAAAAICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgAAAAAAAAA"></audio>
+    
+    <script>
+        
+        // Sudoku Game Logic
+        const sudokuGrid = document.getElementById('sudoku-grid');
+        const timerDisplay = document.getElementById('timer');
+        const errorCounterDisplay = document.getElementById('error-counter');
+        const difficultyDisplay = document.getElementById('difficulty-display'); // New element
+        const normalModeToggle = document.getElementById('normal-mode-toggle'); // Changed ID
+        const candidateModeToggle = document.getElementById('candidate-mode-toggle'); // Changed ID
+        const eraseButton = document.getElementById('erase-button');
+        const undoButton = document.getElementById('undo-button');
+        const redoButton = document.getElementById('redo-button');
+        const newGameButton = document.getElementById('new-game-button');
+        const settingsButton = document.getElementById('settings-button');
+        const settingsPanel = document.getElementById('settings-panel');
+        const closeSettingsButton = document.getElementById('close-settings-button');
+        const numberPad = document.getElementById('number-pad'); // Changed to getElementById
+        const solveSound = document.getElementById('solve-sound');
+        const autoCandidateCheckboxInput = document.getElementById('auto-candidate-checkbox-input'); // New element for checkbox
+
+        // Message Box elements
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+        const messageOkButton = document.getElementById('message-ok-button');
+
+        let board = []; // Current game board state
+        let solution = []; // The solved board
+        let initialBoard = []; // The initial puzzle with fixed numbers
+        let candidates = Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set())); // Pencil marks
+        let selectedCell = { row: -1, col: -1 };
+        let history = []; // Stores { row, col, oldValue, newValue, oldCandidates, newCandidates, isNotesModeChange }
+        let historyPointer = -1;
+        let isNotesMode = false; // Corresponds to "Candidate" mode
+        let timerInterval;
+        let seconds = 0;
+        let errors = 0;
+        let isGameSolved = false;
+
+        // Default Settings
+        let settings = {
+            difficulty: 'medium', // New setting for difficulty
+            checkGuesses: false,
+            autoCandidateMode: false,
+            showErrorCounter: true,
+            showTimer: true,
+            highlightConflicts: true,
+            highlightRowCol: true,
+            highlightBox: true,
+            highlightIdentical: true,
+            playSoundOnSolve: true,
+        };
+
+        // --- Utility Functions ---
+
+        // Shuffle array for randomizing numbers in board generation
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // Checks if a number is valid in a given cell (row, col, 3x3 box)
+        function isValid(grid, row, col, num) {
+            // Check row
+            for (let x = 0; x < 9; x++) {
+                if (grid[row][x] === num && x !== col) {
+                    return false;
+                }
+            }
+            // Check column
+            for (let x = 0; x < 9; x++) {
+                if (grid[x][col] === num && x !== row) {
+                    return false;
+                }
+            }
+            // Check 3x3 box
+            const startRow = Math.floor(row / 3) * 3;
+            const startCol = Math.floor(col / 3) * 3;
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    const r_check = startRow + i;
+                    const c_check = startCol + j;
+                    if (grid[r_check][c_check] === num && (r_check !== row || c_check !== col)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        // Backtracking function to fill the Sudoku grid (generates a full, valid board)
+        function fillGrid(grid) {
+            for (let row = 0; row < 9; row++) {
+                for (let col = 0; col < 9; col++) {
+                    if (grid[row][col] === 0) {
+                        const numbers = shuffleArray([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+                        for (const num of numbers) {
+                            if (isValid(grid, row, col, num)) {
+                                grid[row][col] = num;
+                                if (fillGrid(grid)) {
+                                    return true;
+                                }
+                                grid[row][col] = 0; // Backtrack
+                            }
+                        }
+                        return false; // No number works
+                    }
+                }
+            }
+            return true; // Grid is filled
+        }
+
+        // Solver function to check if a puzzle is solvable and find a solution
+        function solveSudoku(grid) {
+            const tempGrid = grid.map(row => [...row]); // Create a deep copy to avoid modifying original
+            for (let row = 0; row < 9; row++) {
+                for (let col = 0; col < 9; col++) {
+                    if (tempGrid[row][col] === 0) {
+                        for (let num = 1; num <= 9; num++) {
+                            if (isValid(tempGrid, row, col, num)) {
+                                tempGrid[row][col] = num;
+                                if (solveSudoku(tempGrid)) {
+                                    return true; // Solution found
+                                }
+                                tempGrid[row][col] = 0; // Backtrack
+                            }
+                        }
+                        return false; // No number works
+                    }
+                }
+            }
+            return true; // Grid is solved
+        }
+
+        // --- Game Initialization & Board Generation ---
+
+        function generateSudoku() {
+            isGameSolved = false;
+            seconds = 0;
+            errors = 0;
+            updateTimerDisplay();
+            updateErrorCounterDisplay();
+            stopTimer();
+
+            // 1. Create a fully solved Sudoku grid
+            solution = Array(9).fill(0).map(() => Array(9).fill(0));
+            fillGrid(solution); // This should populate 'solution' with a complete, valid board
+
+            // 2. Create the puzzle by removing numbers based on difficulty
+            // Start with a deep copy of the solved board for initial puzzle
+            initialBoard = solution.map(row => [...row]);
+
+            let cellsToRemoveCount;
+            switch (settings.difficulty) {
+                case 'easy':
+                    cellsToRemoveCount = 35 + Math.floor(Math.random() * 5); // 35-39 cells removed
+                    break;
+                case 'medium':
+                    cellsToRemoveCount = 45 + Math.floor(Math.random() * 5); // 45-49 cells removed
+                    break;
+                case 'hard':
+                    cellsToRemoveCount = 55 + Math.floor(Math.random() * 5); // 55-59 cells removed
+                    break;
+                default:
+                    cellsToRemoveCount = 45 + Math.floor(Math.random() * 5); // Default to medium
+            }
+
+            let removed = 0;
+            let attempts = 0;
+            const maxAttemptsForRemoval = 5000; // Increased attempts to ensure enough cells are removed
+
+            // Create a list of all cell positions and shuffle them
+            const allCellPositions = [];
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    allCellPositions.push({ r, c });
+                }
+            }
+            shuffleArray(allCellPositions);
+
+            // Iterate through shuffled positions to remove cells
+            for (const { r, c } of allCellPositions) {
+                if (removed >= cellsToRemoveCount) break; // Stop if enough cells are removed
+
+                if (initialBoard[r][c] !== 0) { // Only try to remove if it's not already empty
+                    const originalValue = initialBoard[r][c];
+                    initialBoard[r][c] = 0; // Temporarily remove the number
+
+                    // Create a copy of the current puzzle state to check solvability
+                    const tempPuzzle = initialBoard.map(row => [...row]);
+                    if (solveSudoku(tempPuzzle)) {
+                        // If it's still solvable, keep the cell removed
+                        removed++;
+                    } else {
+                        // If not solvable, put the number back
+                        initialBoard[r][c] = originalValue;
+                    }
+                }
+                attempts++;
+                if (attempts > maxAttemptsForRemoval && removed < cellsToRemoveCount) {
+                    // Fallback: if we can't remove enough cells while maintaining solvability,
+                    // just proceed with the current state to avoid infinite loops.
+                    // This might result in an easier puzzle than intended for 'hard'.
+                    console.warn("Could not remove desired number of cells while maintaining solvability.");
+                    break;
+                }
+            }
+
+            // The 'board' for gameplay starts as 'initialBoard'
+            board = initialBoard.map(row => [...row]);
+            candidates = Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()));
+            history = [];
+            historyPointer = -1;
+            selectedCell = { row: -1, col: -1 };
+
+            // If auto candidate mode is on, update candidates immediately after board generation
+            if (settings.autoCandidateMode) {
+                isNotesMode = true;
+                normalModeToggle.classList.remove('active');
+                candidateModeToggle.classList.add('active');
+                updateAllCandidates(); // Call this when auto candidate is on
+            } else {
+                isNotesMode = false;
+                normalModeToggle.classList.add('active');
+                candidateModeToggle.classList.remove('active');
+            }
+
+            renderBoard();
+            startTimer();
+            updateDifficultyDisplay();
+        }
+
+        // --- UI Rendering ---
+
+        function renderBoard() {
+            sudokuGrid.innerHTML = ''; // Clear existing grid
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+
+                    if (initialBoard[r][c] !== 0) {
+                        cell.classList.add('fixed');
+                        cell.innerHTML = `<div class="value">${initialBoard[r][c]}</div>`;
+                    } else if (board[r][c] !== 0) {
+                        cell.innerHTML = `<div class="value">${board[r][c]}</div>`;
+                        // Apply correct/incorrect class if checkGuesses is on
+                        if (settings.checkGuesses && board[r][c] !== solution[r][c]) {
+                            cell.classList.add('incorrect-guess');
+                        } else if (settings.checkGuesses) {
+                            cell.classList.add('correct-guess');
+                        }
+                    } else {
+                        // Render candidates
+                        const candidateContainer = document.createElement('div');
+                        candidateContainer.classList.add('candidates');
+                        for (let i = 1; i <= 9; i++) {
+                            const candidateNum = document.createElement('span');
+                            candidateNum.classList.add('candidate-num');
+                            if (candidates[r][c].has(i)) {
+                                candidateNum.textContent = i;
+                            }
+                            candidateContainer.appendChild(candidateNum);
+                        }
+                        cell.appendChild(candidateContainer);
+                    }
+
+                    cell.addEventListener('click', () => selectCell(r, c));
+                    sudokuGrid.appendChild(cell);
+                }
+            }
+            applyHighlighting();
+            checkWinCondition();
+        }
+
+        // Function to update all candidates on the board
+        function updateAllCandidates() {
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (initialBoard[r][c] === 0 && board[r][c] === 0) { // Only for empty user cells
+                        candidates[r][c].clear();
+                        for (let num = 1; num <= 9; num++) {
+                            // Temporarily place the number to check validity
+                            board[r][c] = num; // Temporarily place on the *current* board state
+                            if (isValid(board, r, c, num)) { // Check validity against *current* board state
+                                candidates[r][c].add(num);
+                            }
+                            board[r][c] = 0; // Remove temporary number
+                        }
+                    } else {
+                        candidates[r][c].clear(); // Clear candidates for filled cells
+                    }
+                }
+            }
+            renderBoard(); // Re-render to show updated candidates
+        }
+
+        function selectCell(row, col) {
+            // Deselect previous cell
+            if (selectedCell.row !== -1 && selectedCell.col !== -1) {
+                const prevCell = document.querySelector(`.cell[data-row="${selectedCell.row}"][data-col="${selectedCell.col}"]`);
+                if (prevCell) {
+                    prevCell.classList.remove('selected');
+                }
+            }
+
+            selectedCell = { row, col };
+
+            // Select new cell
+            const currentCell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+            if (currentCell) {
+                currentCell.classList.add('selected');
+            }
+            applyHighlighting();
+        }
+
+        function applyHighlighting() {
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.classList.remove('highlight-row-col-box', 'highlight-identical', 'conflict', 'correct-guess', 'incorrect-guess');
+            });
+
+            if (selectedCell.row === -1 || selectedCell.col === -1) return;
+
+            const r = selectedCell.row;
+            const c = selectedCell.col;
+            const selectedValue = board[r][c];
+
+            // Highlight row, column, and box
+            if (settings.highlightRowCol || settings.highlightBox) {
+                for (let i = 0; i < 9; i++) {
+                    const rowCell = document.querySelector(`.cell[data-row="${r}"][data-col="${i}"]`);
+                    const colCell = document.querySelector(`.cell[data-row="${i}"][data-col="${c}"]`);
+                    if (settings.highlightRowCol) {
+                        if (rowCell) rowCell.classList.add('highlight-row-col-box');
+                        if (colCell) colCell.classList.add('highlight-row-col-box');
+                    }
+                }
+
+                if (settings.highlightBox) {
+                    const startRow = Math.floor(r / 3) * 3;
+                    const startCol = Math.floor(c / 3) * 3;
+                    for (let i = 0; i < 3; i++) {
+                        for (let j = 0; j < 3; j++) {
+                            const boxCell = document.querySelector(`.cell[data-row="${startRow + i}"][data-col="${startCol + j}"]`);
+                            if (boxCell) boxCell.classList.add('highlight-row-col-box');
+                        }
+                    }
+                }
+            }
+
+            // Highlight identical numbers
+            if (settings.highlightIdentical && selectedValue !== 0) {
+                for (let row = 0; row < 9; row++) {
+                    for (let col = 0; col < 9; col++) {
+                        if (board[row][col] === selectedValue) {
+                            document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`).classList.add('highlight-identical');
+                        }
+                    }
+                }
+            }
+
+            // Highlight conflicts
+            if (settings.highlightConflicts && board[r][c] !== 0) {
+                const conflicts = getConflicts(r, c, board[r][c]);
+                conflicts.forEach(pos => {
+                    document.querySelector(`.cell[data-row="${pos.row}"][data-col="${pos.col}"]`).classList.add('conflict');
+                });
+                if (conflicts.length > 0) {
+                    document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`).classList.add('conflict');
+                }
+            }
+
+            // Re-apply selected class last to ensure it's on top
+            const currentCell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+            if (currentCell) {
+                currentCell.classList.add('selected');
+            }
+        }
+
+        // Get conflicting cells for a given number at (row, col)
+        function getConflicts(row, col, num) {
+            const conflicts = [];
+            // Check row
+            for (let x = 0; x < 9; x++) {
+                if (board[row][x] === num && x !== col) {
+                    conflicts.push({ row, col: x });
+                }
+            }
+            // Check column
+            for (let x = 0; x < 9; x++) {
+                if (board[x][col] === num && x !== row) {
+                    conflicts.push({ row: x, col });
+                }
+            }
+            // Check 3x3 box
+            const startRow = Math.floor(row / 3) * 3;
+            const startCol = Math.floor(col / 3) * 3;
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    const r_check = startRow + i;
+                    const c_check = startCol + j;
+                    if (board[r_check][c_check] === num && (r_check !== row || c_check !== col)) {
+                        conflicts.push({ row: r_check, col: c_check });
+                    }
+                }
+            }
+            return conflicts;
+        }
+
+        // --- Game Actions ---
+
+        function recordHistory(row, col, oldValue, newValue, oldCandidates, newCandidates, isNotesModeChange = false) {
+            // Clear future history if a new move is made
+            if (historyPointer < history.length - 1) {
+                history = history.slice(0, historyPointer + 1);
+            }
+            history.push({
+                row,
+                col,
+                oldValue,
+                newValue,
+                oldCandidates: oldCandidates ? new Set(oldCandidates) : null, // Store a copy, handle null
+                newCandidates: newCandidates ? new Set(newCandidates) : null, // Store a copy, handle null
+                isNotesModeChange
+            });
+            historyPointer++;
+        }
+
+        function undoMove() {
+            if (historyPointer >= 0) {
+                const lastMove = history[historyPointer];
+                const { row, col, oldValue, oldCandidates, isNotesModeChange } = lastMove;
+
+                if (isNotesModeChange) {
+                    isNotesMode = !isNotesMode;
+                    updateModeButtons();
+                } else {
+                    // Only update error counter if it was a number entry (not notes) and `checkGuesses` is on
+                    if (initialBoard[row][col] === 0 && oldValue !== null && settings.checkGuesses) {
+                        // If the current value was incorrect, decrement errors
+                        if (board[row][col] !== 0 && board[row][col] !== solution[row][col]) {
+                            errors--;
+                        }
+                        // If the old value (being restored) was incorrect, increment errors
+                        if (oldValue !== 0 && oldValue !== solution[row][col]) {
+                            errors++;
+                        }
+                        updateErrorCounterDisplay();
+                    }
+
+                    board[row][col] = oldValue;
+                    candidates[row][col] = oldCandidates ? new Set(oldCandidates) : new Set();
+                }
+                historyPointer--;
+                renderBoard();
+                if (settings.autoCandidateMode) updateAllCandidates(); // Update candidates after undo
+            }
+        }
+
+        function redoMove() {
+            if (historyPointer < history.length - 1) {
+                historyPointer++;
+                const nextMove = history[historyPointer];
+                const { row, col, newValue, newCandidates, isNotesModeChange } = nextMove;
+
+                if (isNotesModeChange) {
+                    isNotesMode = !isNotesMode;
+                    updateModeButtons();
+                } else {
+                    // Only update error counter if it was a number entry (not notes) and `checkGuesses` is on
+                    if (initialBoard[row][col] === 0 && newValue !== null && settings.checkGuesses) {
+                        // If the current value was incorrect, decrement errors
+                        if (board[row][col] !== 0 && board[row][col] !== solution[row][col]) {
+                            errors--;
+                        }
+                        // If the new value (being restored) is incorrect, increment errors
+                        if (newValue !== 0 && newValue !== solution[row][col]) {
+                            errors++;
+                        }
+                        updateErrorCounterDisplay();
+                    }
+
+                    board[row][col] = newValue;
+                    candidates[row][col] = newCandidates ? new Set(newCandidates) : new Set();
+                }
+                renderBoard();
+                if (settings.autoCandidateMode) updateAllCandidates(); // Update candidates after redo
+            }
+        }
+
+        function enterNumber(num) {
+            if (selectedCell.row === -1 || selectedCell.col === -1 || isGameSolved) return;
+
+            const r = selectedCell.row;
+            const c = selectedCell.col;
+
+            if (initialBoard[r][c] !== 0) {
+                showMessage("You cannot change fixed numbers!");
+                return;
+            }
+
+            const oldValue = board[r][c];
+            const oldCandidates = new Set(candidates[r][c]);
+
+            if (isNotesMode) {
+                // Toggle candidate
+                if (candidates[r][c].has(num)) {
+                    candidates[r][c].delete(num);
+                } else {
+                    candidates[r][c].add(num);
+                }
+                recordHistory(r, c, oldValue, board[r][c], oldCandidates, candidates[r][c]);
+            } else {
+                // Enter number
+                if (oldValue !== 0 && settings.checkGuesses) {
+                    if (oldValue !== solution[r][c]) {
+                        errors--; // Decrement error if previous value was incorrect
+                    }
+                }
+
+                if (board[r][c] === num) { // If same number is entered, clear it
+                    board[r][c] = 0;
+                } else {
+                    board[r][c] = num;
+                }
+
+                // If a number is entered, clear candidates for that cell
+                candidates[r][c].clear();
+
+                recordHistory(r, c, oldValue, board[r][c], oldCandidates, candidates[r][c]);
+
+                if (settings.checkGuesses && board[r][c] !== 0 && board[r][c] !== solution[r][c]) {
+                    errors++;
+                }
+                updateErrorCounterDisplay();
+            }
+            renderBoard();
+            if (settings.autoCandidateMode) updateAllCandidates(); // Update candidates after number entry
+        }
+
+        function eraseCell() {
+            if (selectedCell.row === -1 || selectedCell.col === -1 || isGameSolved) return;
+
+            const r = selectedCell.row;
+            const c = selectedCell.col;
+
+            if (initialBoard[r][c] !== 0) {
+                showMessage("You cannot erase fixed numbers!");
+                return;
+            }
+
+            const oldValue = board[r][c];
+            const oldCandidates = new Set(candidates[r][c]);
+
+            if (oldValue !== 0 && settings.checkGuesses) {
+                if (oldValue !== solution[r][c]) {
+                    errors--; // Decrement error if previous value was incorrect
+                }
+            }
+
+            board[r][c] = 0;
+            candidates[r][c].clear();
+
+            recordHistory(r, c, oldValue, 0, oldCandidates, new Set());
+            updateErrorCounterDisplay();
+            renderBoard();
+            if (settings.autoCandidateMode) updateAllCandidates(); // Update candidates after erase
+        }
+
+        function updateModeButtons() {
+            if (isNotesMode) {
+                normalModeToggle.classList.remove('active');
+                candidateModeToggle.classList.add('active');
+            } else {
+                normalModeToggle.classList.add('active');
+                candidateModeToggle.classList.remove('active');
+            }
+        }
+
+        function checkWinCondition() {
+            if (isGameSolved) return; // Already solved
+
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (board[r][c] === 0 || board[r][c] !== solution[r][c]) {
+                        return false; // Not solved or incorrect
+                    }
+                }
+            }
+            isGameSolved = true;
+            stopTimer();
+            showMessage("Congratulations! You solved the Sudoku!");
+            if (settings.playSoundOnSolve) {
+                solveSound.play();
+            }
+            return true; // Solved!
+        }
+
+        // --- Timer and Error Counter ---
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval); // Clear any existing timer
+            timerInterval = setInterval(() => {
+                seconds++;
+                updateTimerDisplay();
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            timerDisplay.textContent = `TIME: ${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+            timerDisplay.style.display = settings.showTimer ? 'block' : 'none';
+        }
+
+        function updateErrorCounterDisplay() {
+            errorCounterDisplay.textContent = `ERRORS: ${errors}`;
+            errorCounterDisplay.style.display = settings.showErrorCounter ? 'block' : 'none';
+        }
+
+        function updateDifficultyDisplay() {
+            difficultyDisplay.textContent = `DIFFICULTY: ${settings.difficulty.toUpperCase()}`;
+        }
+
+        // --- Settings Panel ---
+
+        function loadSettings() {
+            const savedSettings = localStorage.getItem('sudokuSettings');
+            if (savedSettings) {
+                settings = JSON.parse(savedSettings);
+            }
+            // Apply initial settings
+            updateSettingsUI();
+            updateTimerDisplay();
+            updateErrorCounterDisplay();
+            updateDifficultyDisplay(); // Update difficulty display on load
+            // Set auto candidate checkbox state directly
+            autoCandidateCheckboxInput.checked = settings.autoCandidateMode;
+            isNotesMode = settings.autoCandidateMode;
+            updateModeButtons(); // Ensure mode buttons reflect initial state
+        }
+
+        function saveSettings() {
+            localStorage.setItem('sudokuSettings', JSON.stringify(settings));
+        }
+
+        function updateSettingsUI() {
+            // Update general settings toggles
+            document.getElementById('check-guesses-toggle').textContent = settings.checkGuesses ? 'ON' : 'OFF';
+            document.getElementById('check-guesses-toggle').classList.toggle('on', settings.checkGuesses);
+            document.getElementById('check-guesses-toggle').classList.toggle('off', !settings.checkGuesses);
+
+            document.getElementById('show-error-counter-toggle').textContent = settings.showErrorCounter ? 'ON' : 'OFF';
+            document.getElementById('show-error-counter-toggle').classList.toggle('on', settings.showErrorCounter);
+            document.getElementById('show-error-counter-toggle').classList.toggle('off', !settings.showErrorCounter);
+            errorCounterDisplay.style.display = settings.showErrorCounter ? 'block' : 'none';
+
+            document.getElementById('show-timer-toggle').textContent = settings.showTimer ? 'ON' : 'OFF';
+            document.getElementById('show-timer-toggle').classList.toggle('on', settings.showTimer);
+            document.getElementById('show-timer-toggle').classList.toggle('off', !settings.showTimer);
+            timerDisplay.style.display = settings.showTimer ? 'block' : 'none';
+
+            document.getElementById('highlight-conflicts-toggle').textContent = settings.highlightConflicts ? 'ON' : 'OFF';
+            document.getElementById('highlight-conflicts-toggle').classList.toggle('on', settings.highlightConflicts);
+            document.getElementById('highlight-conflicts-toggle').classList.toggle('off', !settings.highlightConflicts);
+
+            document.getElementById('highlight-row-col-toggle').textContent = settings.highlightRowCol ? 'ON' : 'OFF';
+            document.getElementById('highlight-row-col-toggle').classList.toggle('on', settings.highlightRowCol);
+            document.getElementById('highlight-row-col-toggle').classList.toggle('off', !settings.highlightRowCol);
+
+            document.getElementById('highlight-box-toggle').textContent = settings.highlightBox ? 'ON' : 'OFF';
+            document.getElementById('highlight-box-toggle').classList.toggle('on', settings.highlightBox);
+            document.getElementById('highlight-box-toggle').classList.toggle('off', !settings.highlightBox);
+
+            document.getElementById('highlight-identical-toggle').textContent = settings.highlightIdentical ? 'ON' : 'OFF';
+            document.getElementById('highlight-identical-toggle').classList.toggle('on', settings.highlightIdentical);
+            document.getElementById('highlight-identical-toggle').classList.toggle('off', !settings.highlightIdentical);
+
+            document.getElementById('play-sound-solve-toggle').textContent = settings.playSoundOnSolve ? 'ON' : 'OFF';
+            document.getElementById('play-sound-solve-toggle').classList.toggle('on', settings.playSoundOnSolve);
+            document.getElementById('play-sound-solve-toggle').classList.toggle('off', !settings.playSoundOnSolve);
+
+            // Update difficulty buttons
+            document.querySelectorAll('.difficulty-button').forEach(button => {
+                if (button.dataset.difficulty === settings.difficulty) {
+                    button.classList.add('selected-difficulty');
+                } else {
+                    button.classList.remove('selected-difficulty');
+                }
+            });
+
+            renderBoard(); // Re-render to apply highlighting changes
+        }
+
+        function toggleSetting(settingName) {
+            settings[settingName] = !settings[settingName];
+            saveSettings();
+            updateSettingsUI();
+        }
+
+        function setDifficulty(difficulty) {
+            if (settings.difficulty !== difficulty) {
+                settings.difficulty = difficulty;
+                saveSettings();
+                updateSettingsUI();
+                generateSudoku(); // Generate new board with new difficulty
+            }
+        }
+
+        // --- Message Box ---
+        function showMessage(msg) {
+            messageText.textContent = msg;
+            messageBox.style.display = 'block';
+        }
+
+        function hideMessageBox() {
+            messageBox.style.display = 'none';
+        }
+
+        // --- Event Listeners ---
+
+        window.onload = function() {
+            // Generate number buttons dynamically
+            for (let i = 1; i <= 9; i++) {
+                const numButton = document.createElement('button');
+                numButton.classList.add('number-button');
+                numButton.innerHTML = `<span>${i}</span>`;
+                numButton.addEventListener('click', () => enterNumber(i));
+                numberPad.appendChild(numButton);
+            }
+
+            // Initialize the board first
+            generateSudoku();
+            // Then load settings, which will update the UI based on the newly generated board
+            loadSettings();
+
+            // Control buttons
+            normalModeToggle.addEventListener('click', () => {
+                isNotesMode = false;
+                updateModeButtons();
+                recordHistory(-1, -1, null, null, null, null, true);
+            });
+            candidateModeToggle.addEventListener('click', () => {
+                isNotesMode = true;
+                updateModeButtons();
+                recordHistory(-1, -1, null, null, null, null, true);
+            });
+
+            eraseButton.addEventListener('click', eraseCell);
+            undoButton.addEventListener('click', undoMove);
+            redoButton.addEventListener('click', redoMove);
+            newGameButton.addEventListener('click', generateSudoku);
+            settingsButton.addEventListener('click', () => settingsPanel.classList.add('open'));
+            closeSettingsButton.addEventListener('click', () => settingsPanel.classList.remove('open'));
+
+            // Settings toggles
+            document.getElementById('check-guesses-toggle').addEventListener('click', () => toggleSetting('checkGuesses'));
+            // autoCandidateMode is now handled by the checkbox
+            autoCandidateCheckboxInput.addEventListener('change', (e) => {
+                settings.autoCandidateMode = e.target.checked;
+                saveSettings();
+                isNotesMode = settings.autoCandidateMode; // Update current mode
+                updateModeButtons(); // Update mode buttons visually
+                if (settings.autoCandidateMode) {
+                    updateAllCandidates();
+                } else {
+                    // Clear all candidates if auto mode is turned off
+                    for (let r = 0; r < 9; r++) {
+                        for (let c = 0; c < 9; c++) {
+                            candidates[r][c].clear();
+                        }
+                    }
+                    renderBoard();
+                }
+            });
+
+            document.getElementById('show-error-counter-toggle').addEventListener('click', () => toggleSetting('showErrorCounter'));
+            document.getElementById('show-timer-toggle').addEventListener('click', () => toggleSetting('showTimer'));
+            document.getElementById('highlight-conflicts-toggle').addEventListener('click', () => toggleSetting('highlightConflicts'));
+            document.getElementById('highlight-row-col-toggle').addEventListener('click', () => toggleSetting('highlightRowCol'));
+            document.getElementById('highlight-box-toggle').addEventListener('click', () => toggleSetting('highlightBox'));
+            document.getElementById('highlight-identical-toggle').addEventListener('click', () => toggleSetting('highlightIdentical'));
+            document.getElementById('play-sound-solve-toggle').addEventListener('click', () => toggleSetting('playSoundOnSolve'));
+
+            // Difficulty buttons
+            document.getElementById('difficulty-easy').addEventListener('click', () => setDifficulty('easy'));
+            document.getElementById('difficulty-medium').addEventListener('click', () => setDifficulty('medium'));
+            document.getElementById('difficulty-hard').addEventListener('click', () => setDifficulty('hard'));
+
+            messageOkButton.addEventListener('click', hideMessageBox);
+
+            // Keyboard input
+            document.addEventListener('keydown', (e) => {
+                if (messageBox.style.display === 'block') { // If message box is open, only allow OK
+                    if (e.key === 'Enter' || e.key === 'Escape') {
+                        hideMessageBox();
+                    }
+                    return;
+                }
+
+                if (settingsPanel.classList.contains('open')) { // If settings panel is open
+                    if (e.key === 'Escape') {
+                        settingsPanel.classList.remove('open');
+                    }
+                    return;
+                }
+
+                const key = e.key;
+                const code = e.code; // Get the code to distinguish numpad keys
+
+                let numToEnter = 0;
+
+                // Handle regular number keys (1-9)
+                if (key >= '1' && key <= '9') {
+                    numToEnter = parseInt(key);
+                }
+                // Handle Numpad keys (Numpad1-Numpad9)
+                else if (code.startsWith('Numpad') && code.length === 7) { // e.g., "Numpad1", "Numpad9"
+                    const numpadDigit = parseInt(code.charAt(6));
+                    if (numpadDigit >= 1 && numpadDigit <= 9) {
+                        numToEnter = numpadDigit;
+                    } else if (numpadDigit === 0) { // Numpad0 acts as erase
+                        eraseCell();
+                        return; // Exit as action is handled
+                    }
+                }
+
+                if (numToEnter !== 0) {
+                    enterNumber(numToEnter);
+                } else if (key === 'Backspace' || key === 'Delete') {
+                    eraseCell();
+                } else if (key === 'n' || key === 'N') { // Toggle to Candidate mode
+                    isNotesMode = true;
+                    updateModeButtons();
+                    recordHistory(-1, -1, null, null, null, null, true);
+                } else if (key === 'm' || key === 'M') { // Toggle to Normal mode
+                    isNotesMode = false;
+                    updateModeButtons();
+                    recordHistory(-1, -1, null, null, null, null, true);
+                }
+                else if (key === 'z' || key === 'Z' && (e.ctrlKey || e.metaKey)) {
+                    undoMove();
+                } else if (key === 'y' || key === 'Y' && (e.ctrlKey || e.metaKey)) {
+                    redoMove();
+                } else if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
+                    e.preventDefault(); // Prevent page scrolling
+                    if (selectedCell.row === -1) { // If no cell selected, select first
+                        selectCell(0, 0);
+                        return;
+                    }
+                    let newRow = selectedCell.row;
+                    let newCol = selectedCell.col;
+                    if (key === 'ArrowUp') newRow = Math.max(0, newRow - 1);
+                    else if (key === 'ArrowDown') newRow = Math.min(8, newRow + 1);
+                    else if (key === 'ArrowLeft') newCol = Math.max(0, newCol - 1);
+                    else if (key === 'ArrowRight') newCol = Math.min(8, newCol + 1);
+                    selectCell(newRow, newCol);
+                }
+            });
+        };
+    </script>
+</body>
+</html>
+
