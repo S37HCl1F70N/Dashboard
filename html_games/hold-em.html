@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Texas Hold'em - CRT Edition</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --crt-bg-color: #1a1a1a;
+            --crt-text-color: #00ff00;
+            --crt-accent-color: #ffbf00;
+            --crt-border-color: #008000;
+            --crt-shadow-color: #00ff00b3;
+            --crt-error-color: #ff0000;
+            --crt-highlight-color: #00ff0065;
+            --crt-selected-color: #00ffff4d;
+        }
+
+        body {
+            font-family: 'VT323', monospace;
+            background-color: var(--crt-bg-color);
+            color: var(--crt-text-color);
+            text-shadow: 0 0 5px var(--crt-shadow-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 1000;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+            animation: flicker 0.15s infinite;
+        }
+        
+        @keyframes flicker {
+            0% { opacity: 0.2; }
+            20% { opacity: 1; }
+            40% { opacity: 0.3; }
+            60% { opacity: 1; }
+            80% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        .top-bar {
+            width: 100%;
+            background-color: #0a0a0a;
+            border-bottom: 2px solid var(--crt-border-color);
+            padding: 5px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 0 10px var(--crt-border-color);
+            z-index: 100;
+        }
+
+        .site-title {
+            font-size: 1.5rem;
+            color: var(--crt-accent-color);
+            text-shadow: 0 0 7px var(--crt-accent-color);
+        }
+
+        .nav-menu a {
+            color: var(--crt-text-color);
+            text-decoration: none;
+            margin-left: 20px;
+            transition: all 0.2s ease;
+        }
+        .nav-menu a:hover {
+            color: var(--crt-accent-color);
+            text-shadow: 0 0 5px var(--crt-accent-color);
+        }
+
+        .crt-border {
+            border: 2px solid var(--crt-border-color);
+            box-shadow: 0 0 10px var(--crt-border-color);
+        }
+        
+        .player-active {
+             box-shadow: 0 0 15px var(--crt-accent-color), 0 0 10px var(--crt-border-color) inset;
+             border-color: var(--crt-accent-color);
+        }
+
+        .player-area, .community-card-area, .pot-area, .player-actions, .game-log {
+            background-color: rgba(0, 32, 0, 0.2);
+            transition: opacity 0.5s ease;
+        }
+
+        .player-eliminated {
+            opacity: 0.4;
+            border-color: #555 !important;
+        }
+
+        .card {
+            width: 70px;
+            height: 100px;
+            background-color: #0d0d0d;
+            border: 1px solid var(--crt-border-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            border-radius: 5px;
+            position: relative;
+        }
+        .card-back {
+            background-color: var(--crt-border-color);
+            box-shadow: inset 0 0 10px var(--crt-shadow-color);
+        }
+        .card-empty {
+             background-color: rgba(0,0,0,0.2);
+             border-style: dashed;
+        }
+
+        .btn-crt {
+            background-color: transparent;
+            border: 2px solid var(--crt-text-color);
+            color: var(--crt-text-color);
+            padding: 8px 16px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-shadow: 0 0 5px var(--crt-shadow-color);
+        }
+
+        .btn-crt:hover, .btn-crt:focus {
+            background-color: var(--crt-text-color);
+            color: var(--crt-bg-color);
+            box-shadow: 0 0 15px var(--crt-shadow-color);
+            text-shadow: none;
+        }
+
+        .btn-crt:disabled {
+            border-color: var(--crt-border-color);
+            color: var(--crt-border-color);
+            cursor: not-allowed;
+            text-shadow: none;
+            background-color: transparent !important;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.7);
+        }
+
+        .modal-content {
+            background-color: var(--crt-bg-color);
+            margin: 5% auto;
+            padding: 20px;
+            width: 90%;
+            max-width: 700px;
+        }
+
+        .suit-red { color: var(--crt-error-color); }
+        .suit-black { color: var(--crt-text-color); }
+
+        #game-controls {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            z-index: 50;
+        }
+
+        .modal-tabs .tab-btn {
+            background: none;
+            border: none;
+            color: var(--crt-border-color);
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-family: 'VT323', monospace;
+            text-transform: uppercase;
+        }
+
+        .modal-tabs .tab-btn.active {
+            color: var(--crt-text-color);
+            border-bottom: 2px solid var(--crt-text-color);
+            text-shadow: 0 0 5px var(--crt-shadow-color);
+        }
+        
+        .tab-content.hidden {
+            display: none;
+        }
+
+        .hand-chart-table {
+            border-collapse: collapse;
+            color: #fff;
+        }
+        .hand-chart-table th, .hand-chart-table td {
+            border: 1px solid var(--crt-border-color);
+            padding: 4px;
+            min-width: 30px;
+            text-align: center;
+        }
+        .hand-chart-table th {
+            color: var(--crt-accent-color);
+        }
+        .rank-tier-1 { background-color: rgba(0, 255, 0, 0.4); } /* Strongest - Green */
+        .rank-tier-2 { background-color: rgba(173, 255, 47, 0.4); } /* Strong - Yellow-Green */
+        .rank-tier-3 { background-color: rgba(255, 255, 0, 0.4); } /* Good - Yellow */
+        .rank-tier-4 { background-color: rgba(255, 165, 0, 0.4); } /* Playable - Orange */
+        .rank-tier-5 { background-color: rgba(255, 0, 0, 0.4); } /* Weak - Red */
+        
+        .hand-visual { display: flex; align-items: center; margin-bottom: 1rem; }
+        .hand-visual .mini-card-group { display: flex; gap: 4px; margin-right: 1rem; }
+        .hand-visual .mini-card {
+            width: 30px; height: 45px;
+            border: 1px solid var(--crt-border-color);
+            border-radius: 3px;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            font-size: 14px; background: #0d0d0d;
+        }
+        .hand-visual .hand-info { flex: 1; }
+        .hand-visual .hand-title { color: var(--crt-accent-color); font-size: 1.1rem;}
+        .hand-visual .hand-desc { font-size: 0.9rem; }
+
+    </style>
+</head>
+<body>
+
+    <header class="top-bar">
+        <div class="nav-left"></div>
+        <h1 class="site-title">> Master Command Console</h1>
+        <nav class="nav-menu">
+            <a href="#">⌂ Dashboard</a>
+            <a href="#">📡 Radar</a>
+            <a href="#">POKER</a>
+        </nav>
+    </header>
+
+    <div id="game-container" class="w-full h-full p-4 flex flex-col items-center justify-center mt-8">
+        
+        <div id="game-controls">
+            <button id="start-game-btn" class="btn-crt">Start Game</button>
+            <button id="new-hand-btn" class="btn-crt" style="display: none;">New Hand</button>
+            <button id="new-game-btn" class="btn-crt" style="display: none;">New Game</button>
+        </div>
+
+        <!-- Poker Table -->
+        <div id="poker-table" class="crt-border rounded-full w-[95vw] h-[60vh] lg:w-[80vw] lg:h-[70vh] bg-green-900/30 relative flex items-center justify-center">
+            
+            <!-- Player 1 (Bottom) -->
+            <div id="player-0-area" class="player-area absolute bottom-[-5%] w-56 text-center p-2 crt-border rounded">
+                <div class="font-bold text-lg">Player 1</div>
+                <div id="player-0-chips" class="text-accent-color">Chips: 1000</div>
+                <div id="player-0-hand" class="flex justify-center space-x-2 mt-2">
+                    <div class="card card-empty"></div>
+                    <div class="card card-empty"></div>
+                </div>
+                 <div id="player-0-status" class="text-sm h-4 mt-1"></div>
+                 <div id="player-0-best-hand" class="text-sm h-4 mt-1 text-cyan-400"></div>
+            </div>
+
+            <!-- CPU Players -->
+            <div id="player-1-area" class="player-area absolute top-[-5%] w-40 text-center p-2 crt-border rounded">
+                <div class="font-bold">CPU 1</div>
+                <div id="player-1-chips">Chips: 1000</div>
+                <div id="player-1-hand" class="flex justify-center space-x-2 mt-2">
+                    <div class="card card-back"></div>
+                    <div class="card card-back"></div>
+                </div>
+                <div id="player-1-status" class="text-sm h-4 mt-1"></div>
+                 <div id="player-1-best-hand" class="text-sm h-4 mt-1 text-cyan-400"></div>
+            </div>
+            <div id="player-2-area" class="player-area absolute left-[-2%] top-1/2 -translate-y-1/2 w-40 text-center p-2 crt-border rounded">
+                <div class="font-bold">CPU 2</div>
+                <div id="player-2-chips">Chips: 1000</div>
+                <div id="player-2-hand" class="flex justify-center space-x-2 mt-2">
+                    <div class="card card-back"></div>
+                    <div class="card card-back"></div>
+                </div>
+                 <div id="player-2-status" class="text-sm h-4 mt-1"></div>
+                 <div id="player-2-best-hand" class="text-sm h-4 mt-1 text-cyan-400"></div>
+            </div>
+            <div id="player-3-area" class="player-area absolute right-[-2%] top-1/2 -translate-y-1/2 w-40 text-center p-2 crt-border rounded">
+                <div class="font-bold">CPU 3</div>
+                <div id="player-3-chips">Chips: 1000</div>
+                <div id="player-3-hand" class="flex justify-center space-x-2 mt-2">
+                    <div class="card card-back"></div>
+                    <div class="card card-back"></div>
+                </div>
+                 <div id="player-3-status" class="text-sm h-4 mt-1"></div>
+                 <div id="player-3-best-hand" class="text-sm h-4 mt-1 text-cyan-400"></div>
+            </div>
+            
+            <!-- Community Cards & Pot -->
+            <div class="text-center">
+                <div class="pot-area crt-border rounded p-2 mb-4">
+                    <div class="text-lg">Pot</div>
+                    <div id="pot-amount" class="text-2xl text-accent-color">0</div>
+                </div>
+                <div class="community-card-area crt-border rounded p-2 flex space-x-2">
+                    <div id="community-card-0" class="card card-empty"></div>
+                    <div id="community-card-1" class="card card-empty"></div>
+                    <div id="community-card-2" class="card card-empty"></div>
+                    <div id="community-card-3" class="card card-empty"></div>
+                    <div id="community-card-4" class="card card-empty"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player Actions & Game Log -->
+        <div class="w-full lg:w-3/4 mt-20 lg:mt-24 flex justify-between items-start space-x-4">
+            <div class="player-actions crt-border rounded p-4 flex-grow">
+                <h3 id="actions-title" class="text-lg mb-2 text-center">AWAITING INPUT...</h3>
+                <div class="flex flex-col md:flex-row justify-center items-center space-y-2 md:space-y-0 md:space-x-2">
+                    <button id="fold-btn" class="btn-crt w-full md:w-auto">Fold</button>
+                    <button id="check-btn" class="btn-crt w-full md:w-auto">Check</button>
+                    <button id="call-btn" class="btn-crt w-full md:w-auto">Call</button>
+                    <div class="flex items-center space-x-2">
+                         <button id="bet-btn" class="btn-crt w-full md:w-auto">Bet</button>
+                         <input type="range" id="bet-slider" min="10" max="1000" step="10" class="w-32">
+                         <span id="bet-amount-display">10</span>
+                    </div>
+                </div>
+            </div>
+            <div id="game-log-container" class="game-log crt-border rounded p-4 w-1/3 h-32 overflow-y-auto text-sm">
+                <div id="log-content">
+                    <div>> SYSTEM BOOT... OK</div>
+                    <div>> INITIALIZING POKER_EXEC...</div>
+                </div>
+            </div>
+        </div>
+        
+        <button id="hand-ranking-btn" class="btn-crt absolute top-20 right-4">Hand Rankings</button>
+    </div>
+
+    <!-- Hand Rankings Modal -->
+    <div id="hand-ranking-modal" class="modal">
+        <div class="modal-content crt-border">
+            <span id="close-modal" class="float-right text-2xl cursor-pointer hover:text-red-500">&times;</span>
+            <div class="modal-tabs mb-4 border-b-2 border-b-[var(--crt-border-color)]">
+                <button class="tab-btn active" data-tab="poker-hands">Poker Hands</button>
+                <button class="tab-btn" data-tab="starting-hands">Starting Hands</button>
+            </div>
+
+            <!-- Poker Hands Content -->
+            <div id="poker-hands" class="tab-content">
+                 <!-- Content generated by JS -->
+            </div>
+
+            <!-- Starting Hands Content -->
+            <div id="starting-hands" class="tab-content hidden overflow-x-auto">
+                 <h2 class="text-2xl mb-4 text-accent-color">STARTING HAND RANKINGS</h2>
+                 <p class="text-xs mb-2">Pairs are on the diagonal. Suited hands above, off-suit hands below.</p>
+                 <table class="hand-chart-table text-xs">
+                    <thead>
+                        <tr><th></th><th>A</th><th>K</th><th>Q</th><th>J</th><th>T</th><th>9</th><th>8</th><th>7</th><th>6</th><th>5</th><th>4</th><th>3</th><th>2</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><th>A</th><td class="rank-tier-1">AA</td><td class="rank-tier-1">AKs</td><td class="rank-tier-1">AQs</td><td class="rank-tier-1">AJs</td><td class="rank-tier-1">ATs</td><td class="rank-tier-2">A9s</td><td class="rank-tier-2">A8s</td><td class="rank-tier-2">A7s</td><td class="rank-tier-2">A6s</td><td class="rank-tier-2">A5s</td><td class="rank-tier-2">A4s</td><td class="rank-tier-2">A3s</td><td class="rank-tier-2">A2s</td></tr>
+                        <tr><th>K</th><td class="rank-tier-1">AKo</td><td class="rank-tier-1">KK</td><td class="rank-tier-1">KQs</td><td class="rank-tier-1">KJs</td><td class="rank-tier-1">KTs</td><td class="rank-tier-2">K9s</td><td class="rank-tier-3">K8s</td><td class="rank-tier-3">K7s</td><td class="rank-tier-3">K6s</td><td class="rank-tier-4">K5s</td><td class="rank-tier-4">K4s</td><td class="rank-tier-4">K3s</td><td class="rank-tier-4">K2s</td></tr>
+                        <tr><th>Q</th><td class="rank-tier-1">AQo</td><td class="rank-tier-1">KQo</td><td class="rank-tier-1">QQ</td><td class="rank-tier-1">QJs</td><td class="rank-tier-1">QTs</td><td class="rank-tier-2">Q9s</td><td class="rank-tier-3">Q8s</td><td class="rank-tier-4">Q7s</td><td class="rank-tier-4">Q6s</td><td class="rank-tier-4">Q5s</td><td class="rank-tier-5">Q4s</td><td class="rank-tier-5">Q3s</td><td class="rank-tier-5">Q2s</td></tr>
+                        <tr><th>J</th><td class="rank-tier-1">AJo</td><td class="rank-tier-1">KJo</td><td class="rank-tier-1">QJo</td><td class="rank-tier-1">JJ</td><td class="rank-tier-1">JTs</td><td class="rank-tier-2">J9s</td><td class="rank-tier-3">J8s</td><td class="rank-tier-3">J7s</td><td class="rank-tier-4">J6s</td><td class="rank-tier-5">J5s</td><td class="rank-tier-5">J4s</td><td class="rank-tier-5">J3s</td><td class="rank-tier-5">J2s</td></tr>
+                        <tr><th>T</th><td class="rank-tier-2">ATo</td><td class="rank-tier-2">KTo</td><td class="rank-tier-2">QTo</td><td class="rank-tier-2">JTo</td><td class="rank-tier-1">TT</td><td class="rank-tier-2">T9s</td><td class="rank-tier-3">T8s</td><td class="rank-tier-4">T7s</td><td class="rank-tier-5">T6s</td><td class="rank-tier-5">T5s</td><td class="rank-tier-5">T4s</td><td class="rank-tier-5">T3s</td><td class="rank-tier-5">T2s</td></tr>
+                        <tr><th>9</th><td class="rank-tier-3">A9o</td><td class="rank-tier-3">K9o</td><td class="rank-tier-4">Q9o</td><td class="rank-tier-4">J9o</td><td class="rank-tier-3">T9o</td><td class="rank-tier-2">99</td><td class="rank-tier-3">98s</td><td class="rank-tier-4">97s</td><td class="rank-tier-4">96s</td><td class="rank-tier-5">95s</td><td class="rank-tier-5">94s</td><td class="rank-tier-5">93s</td><td class="rank-tier-5">92s</td></tr>
+                        <tr><th>8</th><td class="rank-tier-4">A8o</td><td class="rank-tier-4">K8o</td><td class="rank-tier-5">Q8o</td><td class="rank-tier-4">J8o</td><td class="rank-tier-4">T8o</td><td class="rank-tier-4">98o</td><td class="rank-tier-2">88</td><td class="rank-tier-3">87s</td><td class="rank-tier-4">86s</td><td class="rank-tier-5">85s</td><td class="rank-tier-5">84s</td><td class="rank-tier-5">83s</td><td class="rank-tier-5">82s</td></tr>
+                        <tr><th>7</th><td class="rank-tier-4">A7o</td><td class="rank-tier-5">K7o</td><td class="rank-tier-5">Q7o</td><td class="rank-tier-5">J7o</td><td class="rank-tier-5">T7o</td><td class="rank-tier-5">97o</td><td class="rank-tier-4">87o</td><td class="rank-tier-3">77</td><td class="rank-tier-4">76s</td><td class="rank-tier-4">75s</td><td class="rank-tier-5">74s</td><td class="rank-tier-5">73s</td><td class="rank-tier-5">72s</td></tr>
+                        <tr><th>6</th><td class="rank-tier-5">A6o</td><td class="rank-tier-5">K6o</td><td class="rank-tier-5">Q6o</td><td class="rank-tier-5">J6o</td><td class="rank-tier-5">T6o</td><td class="rank-tier-5">96o</td><td class="rank-tier-5">86o</td><td class="rank-tier-4">76o</td><td class="rank-tier-3">66</td><td class="rank-tier-4">65s</td><td class="rank-tier-5">64s</td><td class="rank-tier-5">63s</td><td class="rank-tier-5">62s</td></tr>
+                        <tr><th>5</th><td class="rank-tier-4">A5o</td><td class="rank-tier-5">K5o</td><td class="rank-tier-5">Q5o</td><td class="rank-tier-5">J5o</td><td class="rank-tier-5">T5o</td><td class="rank-tier-5">95o</td><td class="rank-tier-5">85o</td><td class="rank-tier-5">75o</td><td class="rank-tier-4">65o</td><td class="rank-tier-3">55</td><td class="rank-tier-4">54s</td><td class="rank-tier-5">53s</td><td class="rank-tier-5">52s</td></tr>
+                        <tr><th>4</th><td class="rank-tier-5">A4o</td><td class="rank-tier-5">K4o</td><td class="rank-tier-5">Q4o</td><td class="rank-tier-5">J4o</td><td class="rank-tier-5">T4o</td><td class="rank-tier-5">94o</td><td class="rank-tier-5">84o</td><td class="rank-tier-5">74o</td><td class="rank-tier-5">64o</td><td class="rank-tier-4">54o</td><td class="rank-tier-3">44</td><td class="rank-tier-5">43s</td><td class="rank-tier-5">42s</td></tr>
+                        <tr><th>3</th><td class="rank-tier-5">A3o</td><td class="rank-tier-5">K3o</td><td class="rank-tier-5">Q3o</td><td class="rank-tier-5">J3o</td><td class="rank-tier-5">T3o</td><td class="rank-tier-5">93o</td><td class="rank-tier-5">83o</td><td class="rank-tier-5">73o</td><td class="rank-tier-5">63o</td><td class="rank-tier-5">53o</td><td class="rank-tier-5">43o</td><td class="rank-tier-3">33</td><td class="rank-tier-5">32s</td></tr>
+                        <tr><th>2</th><td class="rank-tier-5">A2o</td><td class="rank-tier-5">K2o</td><td class="rank-tier-5">Q2o</td><td class="rank-tier-5">J2o</td><td class="rank-tier-5">T2o</td><td class="rank-tier-5">92o</td><td class="rank-tier-5">82o</td><td class="rank-tier-5">72o</td><td class="rank-tier-5">62o</td><td class="rank-tier-5">52o</td><td class="rank-tier-5">42o</td><td class="rank-tier-5">32o</td><td class="rank-tier-3">22</td></tr>
+                    </tbody>
+                 </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- CONSTANTS ---
+        const SUITS = ['♥', '♦', '♣', '♠'];
+        const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+        const RANK_VALUES = { '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
+        const PLAYER_COUNT = 4;
+        const STARTING_CHIPS = 1000;
+        const SMALL_BLIND = 10;
+        const BIG_BLIND = 20;
+
+        // --- DOM Elements ---
+        const handRankingBtn = document.getElementById('hand-ranking-btn');
+        const handRankingModal = document.getElementById('hand-ranking-modal');
+        const closeModalBtn = document.getElementById('close-modal');
+        const betSlider = document.getElementById('bet-slider');
+        const betAmountDisplay = document.getElementById('bet-amount-display');
+        const logContainer = document.getElementById('game-log-container');
+        const logContent = document.getElementById('log-content');
+        const potAmountEl = document.getElementById('pot-amount');
+        const foldBtn = document.getElementById('fold-btn');
+        const checkBtn = document.getElementById('check-btn');
+        const callBtn = document.getElementById('call-btn');
+        const betBtn = document.getElementById('bet-btn');
+        const startGameBtn = document.getElementById('start-game-btn');
+        const newHandBtn = document.getElementById('new-hand-btn');
+        const newGameBtn = document.getElementById('new-game-btn');
+        const actionsTitle = document.getElementById('actions-title');
+        const tabs = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        // --- Game State ---
+        let gameState = {};
+
+        // --- Classes ---
+        class Player {
+            constructor(id, isCPU, chips) {
+                this.id = id;
+                this.isCPU = isCPU;
+                this.chips = chips;
+                this.hand = [];
+                this.currentBet = 0;
+                this.hasActed = false;
+                this.isFolded = false;
+                this.isAllIn = false;
+                this.isDealer = false;
+                this.bestHand = null;
+                this.isEliminated = false;
+            }
+
+            bet(amount) {
+                const betAmount = Math.min(amount, this.chips);
+                this.chips -= betAmount;
+                this.currentBet += betAmount;
+                gameState.pot += betAmount;
+                if (this.chips === 0) {
+                    this.isAllIn = true;
+                }
+                return betAmount;
+            }
+        }
+
+        // --- Game Logic Functions ---
+
+        function createDeck() {
+            const deck = [];
+            for (const suit of SUITS) {
+                for (const rank of RANKS) {
+                    deck.push({ rank, suit });
+                }
+            }
+            return deck;
+        }
+
+        function shuffleDeck(deck) {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
+
+        function logMessage(message) {
+            const p = document.createElement('div');
+            p.textContent = `> ${message}`;
+            logContent.appendChild(p);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateUI() {
+            // Update player info
+            gameState.players.forEach(player => {
+                const playerArea = document.getElementById(`player-${player.id}-area`);
+                const chipsEl = document.getElementById(`player-${player.id}-chips`);
+                const handContainer = document.getElementById(`player-${player.id}-hand`);
+                const statusEl = document.getElementById(`player-${player.id}-status`);
+                const bestHandEl = document.getElementById(`player-${player.id}-best-hand`);
+
+                chipsEl.textContent = `Chips: ${player.chips}`;
+
+                if (player.isEliminated) {
+                    playerArea.classList.add('player-eliminated');
+                    statusEl.textContent = 'ELIMINATED';
+                    handContainer.innerHTML = '<div class="card card-empty"></div><div class="card card-empty"></div>';
+                    bestHandEl.textContent = '';
+                    return; // Skip rest of UI update for eliminated player
+                }
+                
+                playerArea.classList.remove('player-eliminated');
+
+                handContainer.innerHTML = '';
+                if (player.hand.length > 0) {
+                     player.hand.forEach(card => {
+                        handContainer.appendChild(createCardElement(card, player.isCPU && !gameState.showdown));
+                    });
+                } else {
+                    handContainer.innerHTML = '<div class="card card-empty"></div><div class="card card-empty"></div>';
+                }
+
+                if (player.isFolded) {
+                    statusEl.textContent = 'FOLDED';
+                    statusEl.style.color = 'var(--crt-error-color)';
+                } else if (player.currentBet > 0) {
+                    statusEl.textContent = `BET: ${player.currentBet}`;
+                    statusEl.style.color = 'var(--crt-accent-color)';
+                } else {
+                     statusEl.textContent = '';
+                }
+                
+                if (gameState.showdown && !player.isFolded) {
+                    bestHandEl.textContent = player.bestHand.name;
+                } else if (!player.isCPU && player.bestHand && gameState.stage !== 'preflop'){
+                    bestHandEl.textContent = player.bestHand.name;
+                }
+                else {
+                    bestHandEl.textContent = '';
+                }
+                
+                if (player.id === gameState.currentPlayerIndex && !gameState.handOver) {
+                    playerArea.classList.add('player-active');
+                } else {
+                    playerArea.classList.remove('player-active');
+                }
+            });
+
+            for (let i = 0; i < 5; i++) {
+                const cardEl = document.getElementById(`community-card-${i}`);
+                if (gameState.communityCards && gameState.communityCards[i]) {
+                    cardEl.innerHTML = createCardElement(gameState.communityCards[i]).innerHTML;
+                    cardEl.classList.remove('card-empty');
+                } else {
+                    cardEl.innerHTML = '';
+                    cardEl.classList.add('card-empty');
+                }
+            }
+
+            potAmountEl.textContent = gameState.pot;
+            updateActionButtons();
+        }
+
+        function createCardElement(card, isHidden = false) {
+            const cardEl = document.createElement('div');
+            cardEl.classList.add('card');
+            if (isHidden) {
+                cardEl.classList.add('card-back');
+            } else {
+                const suitColor = (card.suit === '♥' || card.suit === '♦') ? 'suit-red' : 'suit-black';
+                cardEl.innerHTML = `<span class="${suitColor}">${card.rank}</span><span class="${suitColor}">${card.suit}</span>`;
+            }
+            return cardEl;
+        }
+        
+        function updateActionButtons() {
+            if (gameState.handOver || !gameState.players || !gameState.players[0] || gameState.players[0].isFolded || gameState.players[0].isAllIn || gameState.players[0].isEliminated) {
+                foldBtn.disabled = true; checkBtn.disabled = true; callBtn.disabled = true; betBtn.disabled = true; betSlider.disabled = true;
+                if (!gameState.gameOver) actionsTitle.textContent = "HAND OVER";
+                return;
+            }
+
+            const player = gameState.players[0];
+            const toCall = gameState.currentBet - player.currentBet;
+            
+            actionsTitle.textContent = `YOUR TURN (TO CALL: ${toCall})`;
+            foldBtn.disabled = false;
+            checkBtn.disabled = toCall > 0;
+            callBtn.disabled = toCall === 0 || player.chips < toCall;
+            callBtn.textContent = toCall > 0 ? `Call ${toCall}` : 'Call';
+            
+            betBtn.disabled = false;
+            betSlider.disabled = false;
+            betSlider.min = BIG_BLIND;
+            betSlider.max = player.chips;
+            betSlider.value = Math.min(BIG_BLIND, player.chips);
+            betAmountDisplay.textContent = betSlider.value;
+        }
+
+        function startNewHand() {
+            // Check for eliminations and game over condition
+            gameState.players.forEach(p => {
+                if (p.chips === 0 && !p.isEliminated) {
+                    p.isEliminated = true;
+                    logMessage(`${p.isCPU ? 'CPU ' + p.id : 'Player 1'} has been eliminated!`);
+                }
+            });
+
+            const activePlayers = gameState.players.filter(p => !p.isEliminated);
+            if (activePlayers.length <= 1) {
+                gameState.gameOver = true;
+                const winner = activePlayers[0];
+                const winnerName = winner.isCPU ? 'CPU ' + winner.id : 'Player 1';
+                logMessage(`>>> GAME OVER! ${winnerName} is the tournament winner! <<<`);
+                actionsTitle.textContent = "GAME OVER";
+                newHandBtn.style.display = 'none';
+                newGameBtn.style.display = 'inline-block';
+                updateUI();
+                return;
+            }
+
+            logMessage("--- STARTING NEW HAND ---");
+            gameState.deck = createDeck();
+            shuffleDeck(gameState.deck);
+            gameState.communityCards = [];
+            gameState.pot = 0;
+            gameState.currentBet = 0;
+            gameState.handOver = false;
+            gameState.showdown = false;
+            gameState.stage = 'preflop';
+
+            gameState.players.forEach(p => {
+                if (!p.isEliminated) {
+                    p.hand = []; p.currentBet = 0; p.isFolded = false;
+                    p.isAllIn = false; p.hasActed = false; p.bestHand = null;
+                }
+            });
+            
+            // Rotate dealer, skipping eliminated players
+            do {
+                gameState.dealerIndex = (gameState.dealerIndex + 1) % PLAYER_COUNT;
+            } while (gameState.players[gameState.dealerIndex].isEliminated);
+
+            const getNextActivePlayerIndex = (startIndex) => {
+                let currentIndex = startIndex;
+                do {
+                    currentIndex = (currentIndex + 1) % PLAYER_COUNT;
+                } while (gameState.players[currentIndex].isEliminated);
+                return currentIndex;
+            };
+
+            const smallBlindIndex = getNextActivePlayerIndex(gameState.dealerIndex);
+            const bigBlindIndex = getNextActivePlayerIndex(smallBlindIndex);
+            gameState.currentPlayerIndex = getNextActivePlayerIndex(bigBlindIndex);
+
+            const smallBlindPlayer = gameState.players[smallBlindIndex];
+            const bigBlindPlayer = gameState.players[bigBlindIndex];
+            
+            logMessage(`${smallBlindPlayer.isCPU ? 'CPU ' + smallBlindPlayer.id : 'Player 1'} posts small blind ${SMALL_BLIND}`);
+            smallBlindPlayer.bet(SMALL_BLIND);
+            
+            logMessage(`${bigBlindPlayer.isCPU ? 'CPU ' + bigBlindPlayer.id : 'Player 1'} posts big blind ${BIG_BLIND}`);
+            bigBlindPlayer.bet(BIG_BLIND);
+            
+            gameState.currentBet = BIG_BLIND;
+
+            // Deal cards to non-eliminated players
+            for (let i = 0; i < 2; i++) {
+                gameState.players.forEach(player => {
+                    if (!player.isEliminated) {
+                        player.hand.push(gameState.deck.pop());
+                    }
+                });
+            }
+
+            updateUI();
+            
+            if (gameState.players[gameState.currentPlayerIndex].isCPU) {
+                handleCPUTurn();
+            }
+        }
+        
+        function handlePlayerAction(action, amount = 0) {
+            const player = gameState.players[gameState.currentPlayerIndex];
+            if (player.isCPU) return;
+
+            switch(action) {
+                case 'fold': player.isFolded = true; logMessage('Player 1 folds.'); break;
+                case 'check': logMessage('Player 1 checks.'); break;
+                case 'call':
+                    const callAmount = gameState.currentBet - player.currentBet;
+                    const actualCall = player.bet(callAmount);
+                    logMessage(`Player 1 calls ${actualCall}.`);
+                    break;
+                case 'bet':
+                    const betAmount = player.bet(amount);
+                    gameState.currentBet = player.currentBet;
+                    logMessage(`Player 1 bets ${betAmount}.`);
+                    break;
+            }
+            player.hasActed = true;
+            nextTurn();
+        }
+        
+        function nextTurn() {
+            const activePlayersInHand = gameState.players.filter(p => !p.isFolded && !p.isEliminated);
+            if (activePlayersInHand.length === 1) {
+                handleShowdown(); // Go to showdown to award pot to the single winner
+                return;
+            }
+
+            const playersToAct = activePlayersInHand.filter(p => !p.hasActed && !p.isAllIn);
+            const betsAreEqual = activePlayersInHand.every(p => p.currentBet === gameState.currentBet || p.isAllIn);
+
+            if (playersToAct.length === 0 && betsAreEqual) {
+                logMessage("--- End of Betting Round ---");
+                gameState.players.forEach(p => {
+                    p.hasActed = false;
+                    p.currentBet = 0;
+                });
+                advanceGameStage();
+                return;
+            }
+            
+            do {
+                gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % PLAYER_COUNT;
+            } while (gameState.players[gameState.currentPlayerIndex].isFolded || gameState.players[gameState.currentPlayerIndex].isAllIn || gameState.players[gameState.currentPlayerIndex].isEliminated);
+
+            updateUI();
+
+            if (gameState.players[gameState.currentPlayerIndex].isCPU) {
+                setTimeout(handleCPUTurn, 1000);
+            }
+        }
+
+        function advanceGameStage() {
+            if (gameState.handOver) return;
+            
+            switch(gameState.stage) {
+                case 'preflop':
+                    gameState.stage = 'flop';
+                    logMessage("--- Dealing Flop ---");
+                    gameState.communityCards.push(gameState.deck.pop(), gameState.deck.pop(), gameState.deck.pop());
+                    break;
+                case 'flop':
+                    gameState.stage = 'turn';
+                     logMessage("--- Dealing Turn ---");
+                    gameState.communityCards.push(gameState.deck.pop());
+                    break;
+                case 'turn':
+                    gameState.stage = 'river';
+                     logMessage("--- Dealing River ---");
+                    gameState.communityCards.push(gameState.deck.pop());
+                    break;
+                case 'river':
+                    gameState.stage = 'showdown';
+                    handleShowdown();
+                    return;
+            }
+            
+            const player = gameState.players[0];
+            if (!player.isEliminated) {
+                const allCards = player.hand.concat(gameState.communityCards);
+                player.bestHand = evaluateHand(allCards);
+            }
+
+            gameState.currentBet = 0;
+            let firstToActIndex = gameState.dealerIndex;
+            do {
+                firstToActIndex = (firstToActIndex + 1) % PLAYER_COUNT;
+            } while(gameState.players[firstToActIndex].isFolded || gameState.players[firstToActIndex].isAllIn || gameState.players[firstToActIndex].isEliminated);
+            gameState.currentPlayerIndex = firstToActIndex;
+
+            updateUI();
+            
+            if (gameState.players[gameState.currentPlayerIndex].isCPU) {
+                handleCPUTurn();
+            }
+        }
+        
+        function handleShowdown() {
+            logMessage("--- SHOWDOWN ---");
+            gameState.handOver = true;
+            gameState.showdown = true;
+            
+            let bestHandRank = -1;
+            let winners = [];
+            
+            const playersInShowdown = gameState.players.filter(p => !p.isFolded && !p.isEliminated);
+
+            if (playersInShowdown.length === 1) {
+                winners = playersInShowdown;
+                logMessage(`${winners[0].isCPU ? 'CPU ' + winners[0].id : 'Player 1'} wins as the last remaining player.`);
+            } else {
+                playersInShowdown.forEach(player => {
+                    const allCards = player.hand.concat(gameState.communityCards);
+                    player.bestHand = evaluateHand(allCards);
+                });
+
+                playersInShowdown.forEach(player => {
+                    if (player.bestHand.rank > bestHandRank) {
+                        bestHandRank = player.bestHand.rank;
+                        winners = [player];
+                    } else if (player.bestHand.rank === bestHandRank) {
+                        let tie = false;
+                        for(let i=0; i < player.bestHand.values.length; i++) {
+                            if (player.bestHand.values[i] > winners[0].bestHand.values[i]) {
+                                winners = [player]; tie = false; break;
+                            }
+                            if (player.bestHand.values[i] < winners[0].bestHand.values[i]) {
+                                tie = false; break;
+                            }
+                            if (i === player.bestHand.values.length - 1) tie = true;
+                        }
+                        if(tie) winners.push(player);
+                    }
+                });
+            }
+
+            if (winners.length > 0) {
+                 const potPerWinner = Math.floor(gameState.pot / winners.length);
+                 winners.forEach(winner => {
+                     const winnerName = winner.isCPU ? 'CPU ' + winner.id : 'Player 1';
+                     if (winner.bestHand) {
+                        logMessage(`${winnerName} wins with ${winner.bestHand.name}.`);
+                     }
+                     winner.chips += potPerWinner;
+                 });
+            }
+            
+            gameState.pot = 0;
+            updateUI();
+            newHandBtn.style.display = 'inline-block';
+        }
+
+        function handleCPUTurn() {
+            const cpu = gameState.players[gameState.currentPlayerIndex];
+            const toCall = gameState.currentBet - cpu.currentBet;
+
+            const random = Math.random();
+            if (toCall > 0) {
+                if (random < 0.6 && cpu.chips >= toCall) {
+                    const actualCall = cpu.bet(toCall);
+                    logMessage(`CPU ${cpu.id} calls ${actualCall}.`);
+                } else {
+                    cpu.isFolded = true;
+                    logMessage(`CPU ${cpu.id} folds.`);
+                }
+            } else {
+                 if (random < 0.8) {
+                    logMessage(`CPU ${cpu.id} checks.`);
+                } else {
+                    const betAmount = Math.min(BIG_BLIND, cpu.chips);
+                    cpu.bet(betAmount);
+                    gameState.currentBet = cpu.currentBet;
+                    logMessage(`CPU ${cpu.id} bets ${betAmount}.`);
+                }
+            }
+            cpu.hasActed = true;
+            nextTurn();
+        }
+
+        function initializeGame() {
+            logMessage("Game Initialized. Press 'Start Game' to begin.");
+            gameState.players = Array.from({ length: PLAYER_COUNT }, (_, i) => new Player(i, i !== 0, STARTING_CHIPS));
+            gameState.dealerIndex = -1;
+            gameState.communityCards = [];
+            gameState.pot = 0;
+            gameState.gameOver = false;
+
+            updateUI();
+            foldBtn.disabled = true; checkBtn.disabled = true; callBtn.disabled = true; betBtn.disabled = true; betSlider.disabled = true;
+            populateHandRankingsVisual();
+        }
+
+        // --- Hand Evaluation ---
+        function evaluateHand(sevenCards) {
+            const all5CardHands = getCombinations(sevenCards, 5);
+            let bestHand = { name: 'High Card', rank: 0, values: [0] };
+
+            all5CardHands.forEach(hand => {
+                const evaluated = getHandDetails(hand);
+                if (evaluated.rank > bestHand.rank) {
+                    bestHand = evaluated;
+                } else if (evaluated.rank === bestHand.rank) {
+                    for (let i = 0; i < evaluated.values.length; i++) {
+                        if (evaluated.values[i] > bestHand.values[i]) {
+                            bestHand = evaluated;
+                            break;
+                        }
+                        if (evaluated.values[i] < bestHand.values[i]) {
+                            break;
+                        }
+                    }
+                }
+            });
+            return bestHand;
+        }
+
+        function getHandDetails(hand) {
+            hand.sort((a, b) => RANK_VALUES[b.rank] - RANK_VALUES[a.rank]);
+            const values = hand.map(c => RANK_VALUES[c.rank]);
+            const suits = hand.map(c => c.suit);
+            
+            const isFlush = suits.every(s => s === suits[0]);
+            const isStraight = values.every((v, i) => i === 0 || v === values[i-1] - 1) || JSON.stringify(values) === '[14,5,4,3,2]';
+            if (JSON.stringify(values) === '[14,5,4,3,2]') values.splice(0,1,1);
+            
+            if (isStraight && isFlush) {
+                if (values[0] === 14) return { name: 'Royal Flush', rank: 9, values };
+                return { name: 'Straight Flush', rank: 8, values };
+            }
+
+            const counts = values.reduce((acc, val) => { acc[val] = (acc[val] || 0) + 1; return acc; }, {});
+            const countsArr = Object.values(counts).sort((a, b) => b - a);
+            const primaryValues = Object.keys(counts).filter(k => counts[k] === countsArr[0]).map(Number).sort((a,b)=>b-a);
+            const secondaryValues = Object.keys(counts).filter(k => counts[k] === countsArr[1]).map(Number).sort((a,b)=>b-a);
+            const kickers = values.filter(v => !primaryValues.includes(v) && !secondaryValues.includes(v));
+
+            if (countsArr[0] === 4) return { name: 'Four of a Kind', rank: 7, values: [...primaryValues, ...kickers] };
+            if (countsArr[0] === 3 && countsArr[1] === 2) return { name: 'Full House', rank: 6, values: [...primaryValues, ...secondaryValues]};
+            if (isFlush) return { name: 'Flush', rank: 5, values };
+            if (isStraight) return { name: 'Straight', rank: 4, values };
+            if (countsArr[0] === 3) return { name: 'Three of a Kind', rank: 3, values: [...primaryValues, ...kickers] };
+            if (countsArr[0] === 2 && countsArr[1] === 2) return { name: 'Two Pair', rank: 2, values: [...primaryValues, ...secondaryValues, ...kickers] };
+            if (countsArr[0] === 2) return { name: 'One Pair', rank: 1, values: [...primaryValues, ...kickers] };
+            return { name: 'High Card', rank: 0, values };
+        }
+
+        function getCombinations(array, size) {
+            const result = [];
+            function combo(startIndex, currentCombo) {
+                if (currentCombo.length === size) {
+                    result.push([...currentCombo]);
+                    return;
+                }
+                for (let i = startIndex; i < array.length; i++) {
+                    currentCombo.push(array[i]);
+                    combo(i + 1, currentCombo);
+                    currentCombo.pop();
+                }
+            }
+            combo(0, []);
+            return result;
+        }
+
+        // --- UI Population ---
+        function populateHandRankingsVisual() {
+            const container = document.getElementById('poker-hands');
+            container.innerHTML = '';
+            const hands = [
+                { name: 'Royal Flush', desc: 'A, K, Q, J, 10, all in the same suit.', cards: [{rank: 'A', suit: '♠'}, {rank: 'K', suit: '♠'}, {rank: 'Q', suit: '♠'}, {rank: 'J', suit: '♠'}, {rank: '10', suit: '♠'}] },
+                { name: 'Straight Flush', desc: 'Five cards in sequence, all in the same suit.', cards: [{rank: '9', suit: '♦'}, {rank: '8', suit: '♦'}, {rank: '7', suit: '♦'}, {rank: '6', suit: '♦'}, {rank: '5', suit: '♦'}] },
+                { name: 'Four of a Kind', desc: 'All four cards of the same rank.', cards: [{rank: 'A', suit: '♠'}, {rank: 'A', suit: '♦'}, {rank: 'A', suit: '♣'}, {rank: 'A', suit: '♥'}, {rank: 'K', suit: '♠'}] },
+                { name: 'Full House', desc: 'Three of a kind with a pair.', cards: [{rank: 'K', suit: '♠'}, {rank: 'K', suit: '♦'}, {rank: 'K', suit: '♣'}, {rank: 'Q', suit: '♥'}, {rank: 'Q', suit: '♠'}] },
+                { name: 'Flush', desc: 'Any five cards of the same suit, not in sequence.', cards: [{rank: 'K', suit: '♥'}, {rank: 'J', suit: '♥'}, {rank: '8', suit: '♥'}, {rank: '4', suit: '♥'}, {rank: '2', suit: '♥'}] },
+                { name: 'Straight', desc: 'Five cards in sequence, but not of the same suit.', cards: [{rank: 'Q', suit: '♠'}, {rank: 'J', suit: '♦'}, {rank: '10', suit: '♣'}, {rank: '9', suit: '♥'}, {rank: '8', suit: '♠'}] },
+                { name: 'Three of a Kind', desc: 'Three cards of the same rank.', cards: [{rank: 'Q', suit: '♠'}, {rank: 'Q', suit: '♦'}, {rank: 'Q', suit: '♣'}, {rank: '9', suit: '♥'}, {rank: '2', suit: '♠'}] },
+                { name: 'Two Pair', desc: 'Two different pairs.', cards: [{rank: 'J', suit: '♠'}, {rank: 'J', suit: '♦'}, {rank: '8', suit: '♣'}, {rank: '8', suit: '♥'}, {rank: 'K', suit: '♠'}] },
+                { name: 'One Pair', desc: 'Two cards of the same rank.', cards: [{rank: 'A', suit: '♠'}, {rank: 'A', suit: '♦'}, {rank: 'K', suit: '♣'}, {rank: 'Q', suit: '♥'}, {rank: 'J', suit: '♠'}] },
+                { name: 'High Card', desc: 'When you haven\'t made any of the hands above.', cards: [{rank: 'A', suit: '♠'}, {rank: 'J', suit: '♦'}, {rank: '9', suit: '♣'}, {rank: '5', suit: '♥'}, {rank: '2', suit: '♠'}] },
+            ];
+
+            hands.forEach(hand => {
+                const visualEl = document.createElement('div');
+                visualEl.className = 'hand-visual';
+                
+                let cardsHtml = '<div class="mini-card-group">';
+                hand.cards.forEach(card => {
+                    const suitColor = (card.suit === '♥' || card.suit === '♦') ? 'suit-red' : 'suit-black';
+                    cardsHtml += `<div class="mini-card"><span class="${suitColor}">${card.rank}</span><span class="${suitColor}">${card.suit}</span></div>`;
+                });
+                cardsHtml += '</div>';
+
+                const infoHtml = `<div class="hand-info"><div class="hand-title">${hand.name}</div><div class="hand-desc">${hand.desc}</div></div>`;
+
+                visualEl.innerHTML = cardsHtml + infoHtml;
+                container.appendChild(visualEl);
+            });
+        }
+
+
+        // --- Event Listeners ---
+        handRankingBtn.addEventListener('click', () => handRankingModal.style.display = 'block');
+        closeModalBtn.addEventListener('click', () => handRankingModal.style.display = 'none');
+        window.addEventListener('click', (event) => {
+            if (event.target == handRankingModal) handRankingModal.style.display = 'none';
+        });
+        
+        betSlider.addEventListener('input', (e) => betAmountDisplay.textContent = e.target.value);
+        
+        startGameBtn.addEventListener('click', () => {
+            startNewHand();
+            startGameBtn.style.display = 'none';
+        });
+
+        newHandBtn.addEventListener('click', () => {
+            startNewHand();
+            newHandBtn.style.display = 'none';
+        });
+
+        newGameBtn.addEventListener('click', () => {
+            initializeGame();
+            newGameBtn.style.display = 'none';
+            startGameBtn.style.display = 'inline-block';
+        });
+        
+        foldBtn.addEventListener('click', () => handlePlayerAction('fold'));
+        checkBtn.addEventListener('click', () => handlePlayerAction('check'));
+        callBtn.addEventListener('click', () => handlePlayerAction('call'));
+        betBtn.addEventListener('click', () => handlePlayerAction('bet', parseInt(betSlider.value)));
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.add('hidden'));
+
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.remove('hidden');
+            });
+        });
+
+        // --- Game Start ---
+        initializeGame();
+    });
+    </script>
+</body>
+</html>
