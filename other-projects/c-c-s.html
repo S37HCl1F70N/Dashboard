@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daggerheart C.C.S. v2.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: 80s CRT Green -->
+    <!-- Application Structure Plan: The application is refactored into a multi-view system managed by JavaScript. The primary view is a dashboard that displays saved character profiles and allows for new character creation or leveling up existing ones. The creator itself is a secondary view, maintaining its step-by-step process. This structure supports character persistence (within the session) and progression, making it a more complete tool. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Saved Characters. Goal: Manage characters. Viz/Method: Interactive HTML cards on a dashboard grid. Interaction: Click to level up, delete, or export. Justification: Provides a clear, organized central hub for the user's creations, fitting the "file system" aesthetic of the CRT theme.
+        - Report Info: Random Selection. Goal: Speed up creation. Viz/Method: A "Choose Random" button at each step. Interaction: Click to auto-select and advance. Justification: A quality-of-life feature that adds an element of chance and quick-start capability.
+        - Report Info: Leveling Up. Goal: Character progression. Viz/Method: A dedicated, guided flow that presents only level-appropriate choices (e.g., new domain cards). Interaction: Select cards to add to the character sheet. Justification: This mirrors the in-game progression rules, making the tool useful beyond initial creation.
+        - Report Info: Trait Assignment. Goal: Improve UI/UX. Viz/Method: A drag-and-drop interface for assigning trait values. Interaction: Drag value tokens to trait slots. Justification: Replaces a buggy dropdown system with a tactile, error-proof, and visually engaging method that enhances the "terminal" feel.
+        - Report Info: Data Portability. Goal: Save/Load characters. Viz/Method: JSON-based export/import functionality. Interaction: Buttons on the dashboard trigger file download/upload. Justification: Allows users to persist their characters beyond a single session, a critical feature for a robust creator tool.
+        - Report Info: Character Sheet Display. Goal: View created characters. Viz/Method: A new read-only view that lays out all character data in a clear, multi-column format. Interaction: Accessed via a "View" button on the dashboard. Justification: Fulfills the core need to see the output of the creation process in a format resembling a traditional character sheet.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        :root {
+            --crt-glow: 0 0 3px rgba(0, 255, 65, 0.7), 0 0 5px rgba(0, 255, 65, 0.5);
+            --crt-color: #00ff41;
+            --crt-bg: #051405;
+            --crt-border: 2px solid var(--crt-color);
+        }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'VT323', monospace;
+            background-color: #0a0a0a;
+            color: var(--crt-color);
+            text-shadow: var(--crt-glow);
+        }
+        .view { transition: opacity 0.5s ease-in-out; }
+        .view.hidden { opacity: 0; pointer-events: none; position: absolute; width: 100%; top: 0; left: 0; }
+        .crt-container {
+            background-color: var(--crt-bg);
+            border: var(--crt-border);
+            box-shadow: inset 0 0 15px var(--crt-color), 0 0 15px var(--crt-color);
+            padding: 1.5rem;
+            margin: 1rem;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        .crt-container::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.3) 0px, rgba(0,0,0,0.3) 1px, transparent 1px, transparent 2px);
+            pointer-events: none;
+            z-index: 1;
+            animation: flicker 0.15s infinite;
+        }
+        @keyframes flicker { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+        .crt-title {
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            font-size: 1.5rem;
+            animation: text-flicker 3s linear infinite;
+        }
+        @keyframes text-flicker { 0% { opacity: 0.21; } 2% { opacity: 1; } 8% { opacity: 0.21; } 9% { opacity: 1; } 12% { opacity: 0.21; } 20% { opacity: 1; } 25% { opacity: 0.3; } 30% { opacity: 1; } 70% { opacity: 0.7; } 72% { opacity: 0.2; } 77% { opacity: 0.9; } 100% { opacity: 0.9; } }
+        .crt-card {
+            border: 1px solid var(--crt-color);
+            background-color: rgba(0, 255, 65, 0.05);
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            position: relative;
+            padding-left: 2rem;
+        }
+        .crt-card:hover {
+            background-color: rgba(0, 255, 65, 0.15);
+            box-shadow: 0 0 10px var(--crt-color);
+        }
+        .crt-card::before {
+            content: ">";
+            position: absolute;
+            left: 0.5rem;
+            top: 0.5rem;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .crt-card:hover::before { opacity: 1; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        .crt-input {
+            background-color: transparent;
+            border: 1px solid var(--crt-color);
+            padding: 0.5rem;
+            width: 100%;
+        }
+        .crt-input:focus { outline: none; box-shadow: 0 0 10px var(--crt-color); }
+        .crt-button {
+            border: 1px solid var(--crt-color);
+            background-color: var(--crt-color);
+            color: #0a0a0a;
+            text-shadow: none;
+            padding: 0.5rem 1rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .crt-button:hover { background-color: transparent; color: var(--crt-color); text-shadow: var(--crt-glow); }
+        .crt-button-secondary {
+            border: 1px solid var(--crt-color);
+            background-color: transparent;
+            color: var(--crt-color);
+        }
+        .crt-button-secondary:hover { background-color: var(--crt-color); color: #0a0a0a; text-shadow: none; }
+        .trait-slot {
+            border: 1px dashed rgba(0, 255, 65, 0.4);
+            min-height: 40px;
+            transition: background-color 0.2s;
+        }
+        .trait-slot.over { background-color: rgba(0, 255, 65, 0.2); border-style: solid; }
+        .trait-value {
+            border: 1px solid var(--crt-color);
+            background-color: rgba(0, 255, 65, 0.1);
+            cursor: grab;
+            user-select: none;
+        }
+        .trait-value.dragging { opacity: 0.5; }
+        .sheet-section { border-top: 1px solid rgba(0, 255, 65, 0.3); padding-top: 1rem; margin-top: 1rem; }
+        .info-icon {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 1px solid var(--crt-color);
+            border-radius: 50%;
+            text-align: center;
+            line-height: 0.9rem;
+            font-size: 0.8rem;
+            cursor: help;
+            margin-left: 0.5rem;
+            position: relative;
+        }
+        .info-icon .info-tooltip {
+            visibility: hidden;
+            width: 250px;
+            background-color: var(--crt-bg);
+            color: var(--crt-color);
+            text-align: left;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 10;
+            bottom: 150%;
+            left: 50%;
+            margin-left: -125px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            border: 1px solid var(--crt-color);
+            font-size: 1rem;
+            text-shadow: none;
+        }
+        .info-icon:hover .info-tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="p-2 sm:p-4">
+
+    <div id="dashboard-view" class="view">
+        <header class="text-center p-4">
+            <h1 class="crt-title text-2xl md:text-4xl">> DAGGERHEART C.C.S. [v2.0] <</h1>
+            <p class="text-sm">> MAIN MENU <</p>
+        </header>
+        <div class="crt-container max-w-5xl mx-auto">
+            <div class="flex flex-wrap gap-4 justify-between items-center border-b-2 border-green-500 pb-2 mb-4">
+                <h2 class="text-2xl">> CHARACTER ROSTER</h2>
+                <div class="flex gap-2">
+                    <button id="import-character-button" class="crt-button-secondary">Import File</button>
+                    <input type="file" id="import-file-input" class="hidden" accept=".json,.dhc">
+                    <button id="new-character-button" class="crt-button">New Character</button>
+                </div>
+            </div>
+            <div id="character-roster" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <p id="roster-placeholder" class="col-span-full text-center opacity-70 py-8">> NO CHARACTER FILES FOUND. INITIALIZE NEW CHARACTER. <</p>
+            </div>
+            <p class="text-xs text-center mt-6 opacity-50">> NOTICE: Character files are saved for the current session only. Use EXPORT to save files permanently. <</p>
+        </div>
+    </div>
+
+    <div id="creator-view" class="view hidden">
+        <header class="text-center p-4">
+            <h1 class="crt-title text-2xl md:text-4xl">> C.C.S. - FILE EDITOR <</h1>
+            <p id="creator-mode-display" class="text-sm">> MODE: NEW CHARACTER <</p>
+        </header>
+        <div class="flex flex-col md:flex-row gap-4">
+            <main id="creator-container" class="w-full md:w-2/3 crt-container">
+                 <div class="flex justify-between items-center border-b-2 border-green-500 pb-2 mb-4">
+                    <h2 id="step-title" class="text-2xl"></h2>
+                    <button id="random-choice-button" class="crt-button-secondary">Choose Random</button>
+                </div>
+                <p id="step-instruction" class="mb-6 text-lg"></p>
+                <div id="step-content" class="gap-4"></div>
+                <div class="mt-8 flex justify-between items-center">
+                    <button id="back-to-dashboard-button" class="crt-button-secondary">Exit to Menu</button>
+                    <button id="continue-button" class="crt-button hidden">CONTINUE</button>
+                </div>
+            </main>
+            <aside class="w-full md:w-1/3 crt-container">
+                <h2 class="text-2xl mb-4 border-b-2 border-green-500 pb-2">> SYSTEM STATUS</h2>
+                <div id="character-summary" class="space-y-2 text-lg">
+                    <p>> NAME: <span id="summary-name" class="text-white">...</span></p>
+                    <p>> LEVEL: <span id="summary-level" class="text-white">...</span></p>
+                    <p>> CLASS: <span id="summary-class" class="text-white">...</span></p>
+                    <p>> SUBCLASS: <span id="summary-subclass" class="text-white">...</span></p>
+                    <p>> ANCESTRY: <span id="summary-ancestry" class="text-white">...</span></p>
+                    <p>> COMMUNITY: <span id="summary-community" class="text-white">...</span></p>
+                    <p class="pt-2 mt-2 border-t border-green-500/50">> HP: <span id="summary-hp" class="text-white">...</span></p>
+                    <p>> EVASION: <span id="summary-evasion" class="text-white">...</span></p>
+                    <p>> STRESS: <span id="summary-stress" class="text-white">...</span></p>
+                    <div id="summary-traits" class="pt-2 mt-2 border-t border-green-500/50"></div>
+                    <div id="summary-equipment" class="pt-2 mt-2 border-t border-green-500/50"></div>
+                    <div id="summary-domains" class="pt-2 mt-2 border-t border-green-500/50"></div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <div id="sheet-view" class="view hidden">
+         <header class="text-center p-4">
+            <h1 class="crt-title text-2xl md:text-4xl">> CHARACTER FILE <</h1>
+            <p id="sheet-name-display" class="text-sm"></p>
+        </header>
+        <div class="crt-container max-w-7xl mx-auto">
+            <div id="sheet-content" class="grid grid-cols-1 lg:grid-cols-3 gap-x-8 gap-y-4 text-lg">
+                <!-- Column 1: Core Stats & Traits -->
+                <div class="lg:col-span-1 space-y-4">
+                    <div id="sheet-core-info"></div>
+                    <div id="sheet-combat-stats" class="sheet-section"></div>
+                    <div id="sheet-traits" class="sheet-section"></div>
+                </div>
+                <!-- Column 2: Heritage & Features -->
+                <div class="lg:col-span-1 space-y-4">
+                    <div id="sheet-heritage"></div>
+                    <div id="sheet-class-features" class="sheet-section"></div>
+                </div>
+                <!-- Column 3: Equipment & Domains -->
+                <div class="lg:col-span-1 space-y-4">
+                    <div id="sheet-equipment"></div>
+                    <div id="sheet-domain-cards" class="sheet-section"></div>
+                </div>
+            </div>
+             <div class="mt-8 text-right">
+                <button id="sheet-back-button" class="crt-button">Back to Roster</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // --- DATA STORE (same as before) ---
+        const db = {
+            ancestries: [
+                { name: 'Aetheris', desc: 'Descendants of celestials from the Hallows Above.', f1: { name: 'Hallowed Soul', text: 'When you roll with Hope, instead of gaining Hope, you can instead spend a Hope to clear a Stress.' }, f2: { name: 'Divine Wings', text: 'You can call forth your Divine Wings and fly. While flying, you can mark a Stress to pick up and carry a willing creature approximately your size or smaller. While your wings are revealed you also gain advantage on rolls to command or intimidate a target.' } },
+                { name: 'Clank', desc: 'Sentient mechanical beings that come in all shapes and sizes.', f1: { name: 'Modular Body', text: 'Once per long rest, you can swap one of your character traits with another.' }, f2: { name: 'Rebuild', text: 'When you take a long rest, you can choose to Repair All Armor without using a downtime move.' } },
+                { name: 'Drakona', desc: 'Draconic humanoids with scaled skin and elemental affinity.', f1: { name: 'Scales', text: 'Your scales act as natural protection. When you would take Severe damage, you can mark a Stress to mark 1 fewer Hit Points.' }, f2: { name: 'Elemental Breath', text: 'Choose an element for your breath (such as electricity, fire, or ice). Once per rest, you can make a weapon attack against all targets in a line within Very Close range. Targets you succeed against take d10 magic damage using your Proficiency.' } },
+                { name: 'Dwarf', desc: 'Hardy folk known for resilience and craftsmanship.', f1: { name: 'Sturdy', text: 'You gain a +1 bonus to your damage thresholds.' }, f2: { name: 'Stonecunning', text: 'You have advantage on rolls that involve stonework, such as identifying the origin of a stone structure, locating a secret door, or determining a tunnel’s stability.' } },
+                { name: 'Earthkin', desc: 'Humanoids made of living rock and soil.', f1: { name: 'Earthen Form', text: 'You have resistance to poison damage. When you take a short rest, you can choose to Repair All Armor without using a downtime move.' }, f2: { name: 'Tectonic Attack', text: 'You can strike the ground with your weapon, erupting the earth in a cascading fissure. When you do, make a weapon attack against all targets in a line within Very Close range. Any targets you succeed against take d8 magic damage using your Proficiency and are temporarily Restrained.' } },
+                { name: 'Elf', desc: 'Graceful humanoids with a deep connection to magic.', f1: { name: 'Quick Reactions', text: 'When an adversary’s action roll succeeds against you, you can spend a Hope to add a +2 bonus to your Evasion against the roll.' }, f2: { name: 'Celestial Trance', text: 'You don’t need to sleep. Instead, you can enter a trance for four hours to gain the benefits of a long rest. While in a trance, you remain fully aware of your surroundings.' } },
+                { name: 'Emberkin', desc: 'Descendants of fire elementals with an inner fire.', f1: { name: 'Burning Soul', text: 'You have resistance to fire damage. When you take fire damage, you can gain a Hope or clear a Stress.' }, f2: { name: 'Cinder Step', text: 'When you succeed on an attack, you can mark a Stress to teleport to an unoccupied space within Very Close range of your target.' } },
+                { name: 'Faerie', desc: 'Fey creatures connected to the wild and chaotic.', f1: { name: 'Luckbender', text: 'Once per session, you can change a roll with Fear to a roll with Hope.' }, f2: { name: 'Wings', text: 'You can fly. While flying, you can mark a Stress after an adversary makes an attack against you to gain a +2 bonus to your Evasion against that attack.' } },
+                { name: 'Faun', desc: 'Humanoid goats with curving horns and cloven hooves.', f1: { name: 'Sure-Footed', text: 'You have advantage on rolls to keep your balance or move on difficult terrain.' }, f2: { name: 'Horns', text: 'When you succeed on an attack against a target within Melee range, you can spend a Hope to gore the target with your horns, dealing an extra 1d6 damage.' } },
+                { name: 'Firbolg', desc: 'Gentle giants of the forest, living in harmony with nature.', f1: { name: 'Serenity', text: 'When you Help an Ally, you can choose to give them a Hope instead of rolling an advantage die.' }, f2: { name: 'One with Nature', text: 'You can communicate with plants and animals.' } },
+                { name: 'Fungril', desc: 'Sentient fungal humanoids who share a collective consciousness.', f1: { name: 'Spore Cloud', text: 'Once per rest, you can emit a cloud of spores. When you do, choose one of the following effects: all creatures within Very Close range are temporarily Confused, or all creatures within Very Close range are temporarily Vulnerable.' }, f2: { name: 'Death Connection', text: 'While touching a corpse that died recently, you can mark a Stress to extract one memory from the corpse related to a specific emotion or sensation of your choice.' } },
+                { name: 'Galapa', desc: 'Anthropomorphic turtles with large, domed shells.', f1: { name: 'Shell', text: 'Gain a bonus to your damage thresholds equal to your Proficiency.' }, f2: { name: 'Retract', text: 'Mark a Stress to retract into your shell. While in your shell, you have resistance to physical damage, you have disadvantage on action rolls, and you can\'t move.' } },
+                { name: 'Giant', desc: 'Towering humanoids with one to three eyes.', f1: { name: 'Giant’s Might', text: 'You have advantage on Strength Rolls.' }, f2: { name: 'Towering', text: 'When you make an attack against a target smaller than you, you can mark a Stress to gain a +2 bonus to your Proficiency for that attack.' } },
+                { name: 'Gnome', desc: 'Small, clever humanoids with an affinity for illusion.', f1: { name: 'Nimble', text: 'You gain a permanent +1 bonus to your Evasion.' }, f2: { name: 'Minor Illusion', text: 'You can create a minor visual illusion no larger than yourself within Close range. This illusion is convincing to anyone at Close range or farther.' } },
+                { name: 'Goblin', desc: 'Small, crafty, and resilient humanoids.', f1: { name: 'Scrounger', text: 'When you find a handful of gold, you find an additional handful.' }, f2: { name: 'Unassuming', text: 'When you make a roll to go unnoticed or hide, you can mark a Stress to gain advantage on the roll.' } },
+                { name: 'Halfling', desc: 'Small humanoids with large hairy feet.', f1: { name: 'Luckbringer', text: 'At the start of each session, everyone in your party gains a Hope.' }, f2: { name: 'Internal Compass', text: 'When you roll a 1 on your Hope Die, you can reroll it.' } },
+                { name: 'Human', desc: 'Dexterous and enduring, found all over.', f1: { name: 'High Stamina', text: 'Gain an additional Stress slot at character creation.' }, f2: { name: 'Adaptability', text: 'When you fail a roll that utilized one of your Experiences, you can mark a Stress to reroll.' } },
+                { name: 'Infernis', desc: 'Descendants of demons from the Circles Below.', f1: { name: 'Fearless', text: 'When you roll with Fear, you can mark 2 Stress to change it into a roll with Hope instead.' }, f2: { name: 'Dread Visage', text: 'You have advantage on rolls to intimidate hostile creatures.' } },
+                { name: 'Katari', desc: 'Feline humanoids with retractable claws.', f1: { name: 'Feline Instincts', text: 'When you make an Agility Roll, you can spend 2 Hope to reroll your Hope Die.' }, f2: { name: 'Retracting Claws', text: 'Make an Agility Roll to scratch a target within Melee range. On a success, you deal 1d4 physical damage using your Proficiency.' } },
+                { name: 'Orc', desc: 'Powerful humanoids with prominent tusks.', f1: { name: 'Sturdy', text: 'When you have 1 Hit Point remaining, attacks against you have disadvantage.' }, f2: { name: 'Tusks', text: 'When you succeed on an attack against a target within Melee range, you can spend a Hope to gore the target with your tusks, dealing an extra 1d6 damage.' } },
+                { name: 'Ribbet', desc: 'Anthropomorphic frog-like humanoids.', f1: { name: 'Sticky Tongue', text: 'You can use your tongue to grab an object within Very Close range.' }, f2: { name: 'Amphibious', text: 'You can breathe and move naturally underwater.' } },
+                { name: 'Simiah', desc: 'Anthropomorphic simian humanoids of great variety.', f1: { name: 'Natural Climber', text: 'You have advantage on Agility Rolls that involve balancing and climbing.' }, f2: { name: 'Nimble', text: 'You gain a permanent +1 bonus to your Evasion.' } },
+                { name: 'Skykin', desc: 'Light-boned humanoids who feel the pull of the open air.', f1: { name: 'Airy', text: 'You have resistance to lightning and thunder damage.' }, f2: { name: 'Feather Fall', text: 'You can slow your descent, allowing you to fall from any height without taking damage.' } },
+                { name: 'Tidekin', desc: 'Humanoids of the ocean, with fins, gills, or webbed digits.', f1: { name: 'Aquatic', text: 'You can breathe and move naturally underwater.' }, f2: { name: 'Know the Tide', text: 'You can sense the ebb and flow of life. When you roll with Fear, place a token on this card. You can hold a number of tokens equal to your level. Before you make an action roll, you can spend any number of these tokens to gain a +1 bonus to the roll for each token spent. At the end of each session, clear all unspent tokens.' } }
+            ],
+            communities: [
+                { name: 'Duneborne', desc: 'Made a home among the shifting sands of the desert.', feature: { name: 'Oasis', text: 'Once per rest, during a moment of calm, you can clear a Stress on all allies within Very Close range or clear a Hit Point on all allies within Very Close range.' } },
+                { name: 'Freeborne', desc: 'From a collective that lived under tyrannical rule and is now liberated.', feature: { name: 'Unbound', text: 'Once per session, when you make an action roll with Fear, you can instead change it to a roll with Hope.' } },
+                { name: 'Frostborne', desc: 'From a place of snow and ice.', feature: { name: 'Long Winter', text: 'Once per long rest, when you choose to Repair All Armor, you can also repair an ally\'s armor up to half their Base Armor Score.' } },
+                { name: 'Hearthborne', desc: 'From humble origins, having lived in a small village or the countryside.', feature: { name: 'Close-Knit', text: 'When you Help An Ally, you can instead spend 2 Hope to make the advantage die a d10 instead of a d6.' } },
+                { name: 'Highborne', desc: 'Accustomed to a life of elegance, opulence, and prestige.', feature: { name: 'Privilege', text: 'You have advantage on rolls to consort with nobles, negotiate prices, or leverage your reputation to get what you want.' } },
+                { name: 'Loreborne', desc: 'From a society that favors strong academic or political prowess.', feature: { name: 'Well-Read', text: 'You have advantage on rolls that involve the history, culture, or politics of a prominent person or place.' } },
+                { name: 'Orderborne', desc: 'From a collective that focuses on discipline or faith.', feature: { name: 'Dedicated', text: 'Record three sayings or values your upbringing instilled in you. Once per rest, when you describe how you\'re embodying one of these principles through your current action, you can roll a d20 as your Hope Die.' } },
+                { name: 'Reborne', desc: 'Once a member of another community, but you can no longer remember it.', feature: { name: 'Found Family', text: 'Once per session, you can spend a Hope to use an ally\'s community ability. When you do, your ally gains a Hope. At any point, when you\'ve discovered the community you were once a part of, or have joined a new community, you can permanently trade this community card for that one instead.' } },
+                { name: 'Ridgeborne', desc: 'Called the rocky peaks and sharp cliffs of the mountainside home.', feature: { name: 'Mountain’s Grip', text: 'You have advantage on rolls to climb or maintain your grip.' } },
+                { name: 'Seaborne', desc: 'Spent your life on or near the ocean.', feature: { name: 'Sea Legs', text: 'You have advantage on rolls to maintain your balance on unsteady surfaces or navigate at sea.' } },
+                { name: 'Warborne', desc: 'Raised in a society constantly at war or preparing for it.', feature: { name: 'Brave Face', text: 'Once per rest you can mark 2 Stress instead of an Armor Slot to reduce incoming damage by one threshold.' } },
+                { name: 'Wildborne', desc: 'Lived deep within the forest.', feature: { name: 'Lightfoot', text: 'Your movement is naturally silent. You have advantage on rolls to move without being heard.' } }
+            ],
+            classes: [
+                {
+                    name: "Assassin", playtest: true, desc: "Masters of deadly strikes who pursue their prey with unwavering intent.", evasion: 12, hp: 6, domains: ["Midnight", "Bone"],
+                    subclasses: [{ name: "Executioner's Guild", cards: [{ name: 'Mark for Death', text: 'Ability text not yet available.' }] }, { name: "Poisoner's Guild", cards: [{ name: 'Toxic Arts', text: 'Ability text not yet available.' }] }]
+                },
+                {
+                    name: "Bard", playtest: false, desc: "Uses words and music to influence the world, rally allies, and make a scene.", evasion: 10, hp: 5, domains: ["Grace", "Codex"],
+                    subclasses: [
+                        { name: "Troubadour", cards: [{ name: 'Gifted Performer (Foundation)', text: 'You can play three different types of songs, once each per long rest: Relaxing Song (You and all allies within Close range clear a Hit Point), Epic Song (Make a target within Close range temporarily Vulnerable), Heartbreaking Song (You and all allies within Close range gain a Hope).' }, { name: 'Maestro (Specialization)', text: 'When you give a Rally Die to an ally, they can gain a Hope or clear a Stress.' }, { name: 'Virtuoso (Mastery)', text: 'You can perform each of your “Gifted Performer” feature’s songs twice per long rest.' }] },
+                        { name: "Wordsmith", cards: [{ name: 'Rousing Speech & Heart of a Poet (Foundation)', text: 'Rousing Speech: Once per long rest, you can give a heartfelt, inspiring speech. All allies within Far range clear 2 Stress. Heart of a Poet: After you make an action roll to impress, persuade, or offend someone, you can spend a Hope to add a d4 to the roll.' }, { name: 'Eloquent (Specialization)', text: 'Once per session, when you encourage an ally, you can do one of the following: Allow them to find a mundane object they need; Help an Ally without spending Hope; Give them an additional downtime move.' }, { name: 'Epic Poetry (Mastery)', text: 'Your Rally Die increases to a d10. Additionally, when you Help an Ally, roll a d10 as your advantage die.' }] }
+                    ]
+                },
+                {
+                    name: "Brawler", playtest: true, desc: "Experts in unarmed combat, honing their bodies into lethal weapons.", evasion: 11, hp: 7, domains: ["Valor", "Bone"],
+                    subclasses: [{ name: "Juggernaut", cards: [{ name: 'Unstoppable Force', text: 'Ability text not yet available.' }] }, { name: "Martial Artist", cards: [{ name: 'Flowing Strikes', text: 'Ability text not yet available.' }] }]
+                },
+                {
+                    name: "Druid", playtest: false, desc: "A force of nature, preserving balance by channeling the wilds.", evasion: 10, hp: 6, domains: ["Sage", "Arcana"],
+                    subclasses: [
+                        { name: "Warden of the Elements", cards: [{ name: 'Elemental Incarnation (Foundation)', text: 'Mark a Stress to Channel an element (Fire, Earth, Water, Air) to gain a powerful benefit until your next rest.' }, { name: 'Elemental Aura (Specialization)', text: 'Once per rest while Channeling, assume an aura matching your element to either damage foes, reduce damage, force Stress, or improve ally Evasion.' }, { name: 'Elemental Dominion (Mastery)', text: 'Gain a powerful, permanent enhancement based on your chosen element while Channeling.' }] },
+                        { name: "Warden of Renewal", cards: [{ name: 'Clarity of Nature & Regeneration (Foundation)', text: 'Clarity of Nature: Once per long rest, create a serene space to clear Stress. Regeneration: Spend 3 Hope to touch a creature and clear 1d4 Hit Points.' }, { name: 'Regenerative Reach & Warden’s Protection (Specialization)', text: 'Your Regeneration has increased range. Warden\'s Protection lets you spend 2 Hope to heal 1d4 allies for 2 HP each.' }, { name: 'Defender (Mastery)', text: 'In Beastform, you can mark a Stress to reduce damage taken by a nearby ally.' }] }
+                    ]
+                },
+                 {
+                    name: "Guardian", playtest: false, desc: "Protects the party by running headfirst into danger.", evasion: 9, hp: 7, domains: ["Valor", "Blade"],
+                    subclasses: [
+                        { name: "The Stalwart", cards: [{ name: 'Unwavering & Iron Will (Foundation)', text: 'Gain +1 to damage thresholds. When you take physical damage, you can mark an additional Armor Slot to reduce the severity.' }, { name: 'Unrelenting & Partners-in-Arms (Specialization)', text: 'Gain +2 to damage thresholds. When a nearby ally takes damage, you can mark an Armor Slot to reduce its severity.' }, { name: 'Undaunted & Loyal Protector (Mastery)', text: 'Gain +3 to damage thresholds. When a wounded ally would take damage, you can mark a Stress to take the damage for them.' }] },
+                        { name: "The Vengeance", cards: [{ name: 'At Ease & Revenge (Foundation)', text: 'Gain an additional Stress slot. When an adversary hits you in melee, mark 2 Stress to force the attacker to mark a Hit Point.' }, { name: 'Act of Reprisal (Specialization)', text: 'When an adversary damages a nearby ally, gain +1 Proficiency for your next successful attack against them.' }, { name: 'Nemesis (Mastery)', text: 'Spend 2 Hope to Prioritize an adversary. When attacking them, you can swap your Hope and Fear Dice.' }] }
+                    ]
+                },
+                {
+                    name: "Ranger", playtest: false, desc: "Keen-eyed trackers who navigate the wilds with graceful haste.", evasion: 12, hp: 6, domains: ["Bone", "Sage"],
+                    subclasses: [
+                        { name: "The Beastbound", cards: [{ name: 'Companion (Foundation)', text: 'You have an animal companion who fights alongside you and levels up with you.' }, { name: 'Expert Training & Battle-Bonded (Specialization)', text: 'Choose an additional level-up option for your companion. Gain +2 Evasion against attacks if your companion is near the attacker.' }, { name: 'Advanced Training & Loyal Friend (Mastery)', text: 'Choose two more level-up options for your companion. Once per long rest, you or your companion can take a lethal blow for the other.' }] },
+                        { name: "The Wayfinder", cards: [{ name: 'Ruthless Predator & Path Forward (Foundation)', text: 'Mark a Stress to gain +1 Proficiency on a damage roll. When you travel to a known location, you find the most direct path.' }, { name: 'Elusive Predator (Specialization)', text: 'When your Ranger\'s Focus target attacks you, gain +2 Evasion against the attack.' }, { name: 'Apex Predator (Mastery)', text: 'Before attacking your Focus, spend a Hope. On a success, remove a Fear from the GM’s pool.' }] }
+                    ]
+                },
+                 {
+                    name: "Rogue", playtest: false, desc: "Fights with blade and wit, preferring to move quickly and quietly.", evasion: 12, hp: 6, domains: ["Midnight", "Grace"],
+                    subclasses: [
+                        { name: "The Nightwalker", cards: [{ name: 'Shadow Stepper (Foundation)', text: 'Mark a Stress to move between shadows, reappearing Cloaked.' }, { name: 'Dark Cloud & Adrenaline (Specialization)', text: 'Create a cloud of magical darkness. While you are Vulnerable, add your level to damage rolls.' }, { name: 'Fleeting Shadow & Vanishing Act (Mastery)', text: 'Gain +1 Evasion and increased Shadow Stepper range. Mark a Stress to become Cloaked at any time.' }] },
+                        { name: "The Syndicate", cards: [{ name: 'Well-Connected (Foundation)', text: 'When you arrive in a new town, you know somebody there who can be useful, but it\'s always complicated.' }, { name: 'Contacts Everywhere (Specialization)', text: 'Once per session, call on a shady contact for a small benefit, like gold, a tool, or a bonus to a roll.' }, { name: 'Reliable Backup (Mastery)', text: 'Use your "Contacts Everywhere" feature three times per session, with new, more powerful options available.' }] }
+                    ]
+                },
+                 {
+                    name: "Seraph", playtest: false, desc: "Channels sacred power from a god to keep the party on their feet.", evasion: 9, hp: 7, domains: ["Splendor", "Valor"],
+                    subclasses: [
+                        { name: "The Divine Wielder", cards: [{ name: 'Spirit Weapon & Sparing Touch (Foundation)', text: 'Your weapon can fly to attack foes at range. Once per long rest, touch a creature to heal 2 HP or Stress.' }, { name: 'Devout (Specialization)', text: 'Roll an extra Prayer Die and discard the lowest. Use Sparing Touch twice per long rest.' }, { name: 'Sacred Resonance (Mastery)', text: 'When you roll damage for your Spirit Weapon, if any dice match, double their value.' }] },
+                        { name: "The Winged Sentinel", cards: [{ name: 'Wings of Light (Foundation)', text: 'You can fly. While flying, you can carry an ally or spend Hope to deal an extra 1d8 damage on an attack.' }, { name: 'Ethereal Visage (Specialization)', text: 'While flying, you have advantage on Presence Rolls. On a success with Hope, you can remove Fear instead of gaining Hope.' }, { name: 'Ascendant & Power of the Gods (Mastery)', text: 'Gain +4 to your Severe damage threshold. Your Wings of Light bonus damage increases to 1d12.' }] }
+                    ]
+                },
+                 {
+                    name: "Sorcerer", playtest: false, desc: "Born with innate magical power and learned to wield it.", evasion: 10, hp: 6, domains: ["Arcana", "Midnight"],
+                    subclasses: [
+                        { name: "The Elemental Origin", cards: [{ name: 'Elementalist (Foundation)', text: 'Choose an element (air, earth, fire, etc.). You can shape it and spend Hope to gain a bonus to rolls or damage related to it.' }, { name: 'Natural Evasion (Specialization)', text: 'When an attack hits you, mark a Stress to roll a d6 and add it to your Evasion against that attack.' }, { name: 'Transcendence (Mastery)', text: 'Once per long rest, transform into a physical manifestation of your element, gaining two powerful benefits.' }] },
+                        { name: "The Primal Origin", cards: [{ name: 'Manipulate Magic (Foundation)', text: 'After casting a spell or make an attack using a weapon that deals magic damage, you can mark a Stress to do one of the following: Extend the spell or attack’s reach by one range; Gain a +2 bonus to the action roll’s result; Double a damage die of your choice; Hit an additional target within range.' }, { name: 'Enchanted Aid (Specialization)', text: 'When you Help an Ally with a Spellcast Roll, your advantage die is a d8. You can also swap their Duality Dice results.' }, { name: 'Arcane Charge (Mastery)', text: 'Become Charged when you take magic damage or spend Hope. Expend the Charge on your next magic attack for a massive damage bonus.' }] }
+                    ]
+                },
+                {
+                    name: "Warlock", playtest: true, desc: "Traded their soul to an otherworldly Patron for incredible power.", evasion: 10, hp: 6, domains: ["Dread", "Splendor"],
+                    subclasses: [{ name: "Pact of the Endless", cards: [{ name: 'Endless Power', text: 'Ability text not yet available.' }] }, { name: "Pact of the Wrathful", cards: [{ name: 'Wrathful Smite', text: 'Ability text not yet available.' }] }]
+                },
+                 {
+                    name: "Warrior", playtest: false, desc: "Runs into battle without hesitation, striking down any enemy.", evasion: 11, hp: 6, domains: ["Blade", "Bone"],
+                    subclasses: [
+                        { name: "The Call of the Brave", cards: [{ name: 'Courage & Battle Ritual (Foundation)', text: 'When you fail a roll with Fear, gain a Hope. Once per long rest, perform a ritual before a dangerous fight to clear 2 Stress and gain 2 Hope.' }, { name: 'Rise to the Challenge (Specialization)', text: 'While you have 2 or fewer HP, you can roll a d20 as your Hope Die.' }, { name: 'Camaraderie (Mastery)', text: 'Initiate a Tag Team Roll one additional time per session. Allies need less Hope to initiate one with you.' }] },
+                        { name: "The Call of the Slayer", cards: [{ name: 'Slayer (Foundation)', text: 'On a roll with Hope, you can gain a d6 Slayer Die instead of Hope. Spend these dice to add their result to your attack or damage roll.' }, { name: 'Weapon Specialist (Specialization)', text: 'Spend a Hope to add your secondary weapon\'s damage die to an attack. Reroll 1s on your Slayer Dice.' }, { name: 'Martial Preparation (Mastery)', text: 'Lead a training session during a rest to give yourself and your allies a d6 Slayer Die.' }] }
+                    ]
+                },
+                 {
+                    name: "Witch", playtest: true, desc: "Magical practitioners who commune with nature and entities beyond.", evasion: 10, hp: 6, domains: ["Sage", "Dread"],
+                    subclasses: [{ name: "Hedge", cards: [{ name: 'Hedge Magic', text: 'Ability text not yet available.' }] }, { name: "Moon", cards: [{ name: 'Lunar Calling', text: 'Ability text not yet available.' }] }]
+                },
+                 {
+                    name: "Wizard", playtest: false, desc: "Dedicated their life to acquiring and honing magical power.", evasion: 11, hp: 5, domains: ["Codex", "Splendor"],
+                    subclasses: [
+                        { name: "School of Knowledge", cards: [{ name: 'Prepared & Adept (Foundation)', text: 'Take an extra domain card. When you Utilize an Experience, you can mark Stress instead of spending Hope to double its modifier.' }, { name: 'Accomplished & Perfect Recall (Specialization)', text: 'Take another extra domain card. Once per rest, reduce the Recall Cost of a card from your vault by 1.' }, { name: 'Brilliant & Honed Expertise (Mastery)', text: 'Take a third extra domain card. When you use an Experience, roll a d6. On a 5+, use it for free.' }] },
+                        { name: "School of War", cards: [{ name: 'Battlemage & Face Your Fear (Foundation)', text: 'Gain an additional Hit Point. When you succeed with Fear on an attack, deal an extra 1d10 magic damage.' }, { name: 'Conjure Shield & Fueled by Fear (Specialization)', text: 'While you have at least 2 Hope, add your Proficiency to your Evasion. Your "Face Your Fear" bonus damage increases to 2d10.' }, { name: 'Thrive in Chaos & Have No Fear (Mastery)', text: 'When you succeed on an attack, mark a Stress to force the target to mark an extra HP. Your "Face Your Fear" bonus damage increases to 3d10.' }] }
+                    ]
+                }
+            ],
+            domains: {
+                Arcana: [
+                    { name: 'Rune Ward', level: 1, text: 'Infuse a trinket with protective magic. Holder can spend Hope to reduce damage by 1d8.' },
+                    { name: 'Unleash Chaos', level: 1, text: 'Spend tokens to channel energy and deal d10 magic damage per token.' },
+                    { name: 'Wall Walk', level: 1, text: 'Spend Hope to let a creature walk on walls and ceilings.' },
+                    { name: 'Cinder Grasp', level: 2, text: 'Target bursts into flames, taking 1d20+3 magic damage and is lit On Fire.' },
+                    { name: 'Floating Eye', level: 2, text: 'Spend Hope to create a small floating orb you can see through.' },
+                    { name: 'Counterspell', level: 3, text: 'Interrupt a magical effect.' },
+                    { name: 'Flight', level: 3, text: 'Fly for a number of actions equal to your Agility.' },
+                    { name: 'Blink Out', level: 4, text: 'Spend Hope to teleport to a point you can see.' },
+                    { name: 'Preservation Blast', level: 4, text: 'Blast all melee targets back to Far range, dealing d8+3 damage.' },
+                    { name: 'Chain Lightning', level: 5, text: 'Unleash lightning on all targets in Close range, which can chain.' },
+                    { name: 'Premonition', level: 5, text: 'Once per long rest, rescind a move and its consequences and do something else.' },
+                    { name: 'Rift Walker', level: 6, text: 'Create an arcane marking, then open a rift back to it later.' },
+                    { name: 'Telekinesis', level: 6, text: 'Use your mind to move a target or throw them at another.' },
+                    { name: 'Arcana-Touched', level: 7, text: 'When 4+ Arcana cards are in your loadout, gain +1 to Spellcast Rolls. Once per rest, swap Hope/Fear dice results.' },
+                ],
+                Blade: [
+                    { name: 'Get Back Up', level: 1, text: 'When you take Severe damage, mark Stress to reduce its severity.' },
+                    { name: 'Not Good Enough', level: 1, text: 'Reroll any 1s or 2s on your damage dice.' },
+                    { name: 'Whirlwind', level: 1, text: 'Spend Hope on a successful attack to hit all other targets in Very Close range for half damage.' },
+                    { name: 'A Soldier’s Bond', level: 2, text: 'Once per long rest, compliment someone to both gain 3 Hope.' },
+                    { name: 'Reckless', level: 2, text: 'Mark Stress to gain advantage on an attack.' },
+                    { name: 'Scramble', level: 3, text: 'Once per rest, avoid a melee attack and safely move away.' },
+                    { name: 'Versatile Fighter', level: 3, text: 'Use a different trait for a weapon. Mark Stress to use the max result of one damage die.' },
+                    { name: 'Deadly Focus', level: 4, text: 'Once per rest, focus on one target to gain +1 Proficiency against them.' },
+                    { name: 'Fortified Armor', level: 4, text: 'While wearing armor, gain +2 to damage thresholds.' },
+                    { name: 'Champion’s Edge', level: 5, text: 'On a critical attack, spend Hope for extra effects like healing or bonus damage.' },
+                    { name: 'Blade-Touched', level: 7, text: 'When 4+ Blade cards are in your loadout, gain +2 to attack rolls and +4 to your Severe damage threshold.' },
+                ],
+                Bone: [
+                    { name: 'Deft Maneuvers', level: 1, text: 'Once per rest, mark Stress to sprint to Far range. If you attack, gain +1 to the roll.' },
+                    { name: 'I See It Coming', level: 1, text: 'Mark Stress to add 1d4 to your Evasion against a ranged attack.' },
+                    { name: 'Untouchable', level: 1, text: 'Gain a bonus to your Evasion equal to your Proficiency.' },
+                    { name: 'Acrobatic', level: 2, text: 'Mark Stress to gain +2 on an Agility Roll.' },
+                    { name: 'Battle Ready', level: 2, text: 'Once per rest, clear a Stress on a Critical Success.' },
+                    { name: 'Adrenaline', level: 3, text: 'When at 2 or fewer HP, gain +1 Proficiency.' },
+                    { name: 'Fighting Chance', level: 3, text: 'Once per rest, when you fail an attack roll, you can reroll your Duality Dice.' },
+                    { name: 'Boost', level: 4, text: 'Mark Stress to boost off an ally and perform an aerial attack with advantage.' },
+                    { name: 'Redirect', level: 4, text: 'When a ranged attack misses, you might redirect it to a nearby enemy.' },
+                    { name: 'Bone-Touched', level: 7, text: 'When 4+ Bone cards are in your loadout, gain +1 Agility. Once per rest, spend 3 Hope to turn a successful attack against you into a failure.' },
+                ],
+                Codex: [
+                    { name: 'Book of Ava', level: 1, text: 'Grants spells: Power Push, Tava\'s Armor, Ice Spike.' },
+                    { name: 'Book of Illiat', level: 1, text: 'Grants spells: Slumber, Arcane Barrage, Telepathy.' },
+                    { name: 'Book of Tyfar', level: 1, text: 'Grants spells: Wild Flame, Magic Hand, Mysterious Mist.' },
+                    { name: 'Book of Sitil', level: 2, text: 'Grants spells: Adjust Appearance, Parallela, Illusion.' },
+                    { name: 'Teleport', level: 5, text: 'Once per long rest, teleport yourself and allies to a place you\'ve been.' },
+                    { name: 'Codex-Touched', level: 7, text: 'When 4+ Codex cards are in your loadout, mark Stress to add your Proficiency to a Spellcast Roll. Swap this card with one from your vault for free once per rest.' },
+                    { name: 'Disintegration Wave', level: 9, text: 'Once per long rest, instantly kill adversaries with a Difficulty of 18 or lower.' },
+                ],
+                Grace: [
+                    { name: 'Deft Deceiver', level: 1, text: 'Spend Hope for advantage on rolls to deceive or trick.' },
+                    { name: 'Enrapture', level: 1, text: 'Temporarily Enrapture a target.' },
+                    { name: 'Inspirational Words', level: 1, text: 'Give allies small boons like clearing Stress or gaining Hope.' },
+                    { name: 'Invisibility', level: 3, text: 'Mark Stress to make yourself or an ally Invisible for a few actions.' },
+                    { name: 'Grace-Touched', level: 7, text: 'When 4+ Grace cards are in your loadout, gain +1 Presence. You can choose to deal Stress instead of HP.' },
+                    { name: 'Notorious', level: 10, text: 'People know you. Leverage your notoriety for a +10 bonus to a roll. Your food and drinks are free.' },
+                ],
+                Midnight: [
+                    { name: 'Pick and Pull', level: 1, text: 'Advantage on rolls to pick locks, disarm traps, or steal.' },
+                    { name: 'Rain of Blades', level: 1, text: 'Spend Hope to conjure blades striking all targets in Very Close range.' },
+                    { name: 'Shadowbind', level: 2, text: 'Temporarily Restrain all adversaries in Very Close range.' },
+                    { name: 'Veil of Night', level: 3, text: 'Create a curtain of darkness only you can see through.' },
+                    { name: 'Midnight-Touched', level: 7, text: 'When 4+ Midnight cards are in your loadout, gain +1 Finesse. Once per rest, deal an extra 2d8 damage on a successful Cloaked attack.' },
+                    { name: 'Specter of the Dark', level: 10, text: 'Mark a Stress to become Spectral, immune to physical damage and able to pass through objects.' },
+                ],
+                Sage: [
+                    { name: 'Gifted Tracker', level: 1, text: 'Spend Hope to ask questions when tracking a creature.' },
+                    { name: 'Vicious Entangle', level: 1, text: 'Roots deal damage and Restrain a target.' },
+                    { name: 'Natural Familiar', level: 2, text: 'Spend Hope to summon a small animal familiar.' },
+                    { name: 'Healing Field', level: 4, text: 'Once per long rest, conjure a field of healing plants that heals you and all allies.' },
+                    { name: 'Sage-Touched', level: 7, text: 'When 4+ Sage cards are in your loadout, gain +1 Instinct. Once per rest, clear a Stress on a successful Spellcast Roll.' },
+                    { name: 'Force of Nature', level: 10, text: 'Mark a Stress to transform into a hulking nature spirit with massive bonuses, but it costs Hope to maintain.' },
+                ],
+                Splendor: [
+                    { name: 'Mending Touch', level: 1, text: 'Spend 2 Hope to clear a Hit Point or Stress on a creature.' },
+                    { name: 'Reassurance', level: 1, text: 'Once per rest, allow an ally to reroll their dice.' },
+                    { name: 'Healing Hands', level: 2, text: 'Mark Stress to clear 2 Hit Points or 2 Stress on an ally.' },
+                    { name: 'Smite', level: 5, text: 'Once per rest, spend 3 Hope to double the result of your next weapon damage roll.' },
+                    { name: 'Splendor-Touched', level: 7, text: 'When 4+ Splendor cards are in your loadout, gain +3 to your Severe damage threshold. Once per long rest, you can take damage as Stress or by spending Hope instead of marking HP.' },
+                    { name: 'Resurrection', level: 10, text: 'Restore a creature to life. Has a chance to be permanently vaulted.' },
+                ],
+                Valor: [
+                    { name: 'I Am Your Shield', level: 1, text: 'Mark a Stress to take damage for an ally.' },
+                    { name: 'Body Basher', level: 2, text: 'Add your Strength to melee weapon damage rolls.' },
+                    { name: 'Brutal Strike', level: 3, text: 'Mark a Stress to deal an extra 1d8 damage on a successful attack.' },
+                    { name: 'Unbreakable Will', level: 3, text: 'When you would mark Stress, roll a d6. On a 6, you don\'t.' },
+                    { name: 'Challenge', level: 5, text: 'Mark a Stress to challenge an adversary, giving them disadvantage against anyone but you.' },
+                    { name: 'Valor-Touched', level: 7, text: 'When 4+ Valor cards are in your loadout, gain +1 Strength. Once per rest, when you mark an Armor Slot, you can clear a Stress.' },
+                    { name: 'Unbreakable', level: 10, text: 'When you would make a death move, instead clear 1d6 Hit Points. This card is then vaulted.' },
+                ],
+                 Dread: [
+                    { name: 'Fearmonger', level: 1, text: 'Ability text not yet available.', playtest: true},
+                ],
+            },
+            equipment: {
+                armor: [
+                    { name: 'Gambeson Armor', minor: 5, severe: 11, score: 3, prop: 'Flexible: +1 to Evasion.' },
+                    { name: 'Leather Armor', minor: 6, severe: 13, score: 3, prop: '-' },
+                    { name: 'Chainmail Armor', minor: 7, severe: 15, score: 4, prop: 'Heavy: -1 to Evasion.' }
+                ],
+                weapons: [
+                    { name: 'Battleaxe', trait: 'Strength', range: 'Melee', damage: 'd10+3 phy', prop: '-' },
+                    { name: 'Longsword', trait: 'Agility', range: 'Melee', damage: 'd8+3 phy', prop: '-' },
+                    { name: 'Rapier', trait: 'Presence', range: 'Melee', damage: 'd8 phy', prop: 'Quick: When you attack, mark a Stress to target another creature in range.' },
+                    { name: 'Shortbow', trait: 'Agility', range: 'Far', damage: 'd6+3 phy', prop: '-' },
+                    { name: 'Shortstaff', trait: 'Instinct', range: 'Close', damage: 'd8+1 mag', prop: '-' },
+                    { name: 'Dualstaff', trait: 'Instinct', range: 'Far', damage: 'd6+3 mag', prop: '-' },
+                    { name: 'Dagger', trait: 'Finesse', range: 'Melee', damage: 'd8+1 phy', prop: '-' },
+                    { name: 'Hallowed Axe', trait: 'Strength', range: 'Melee', damage: 'd8+1 mag', prop: '-' },
+                    { name: 'Small Dagger', trait: 'Finesse', range: 'Melee', damage: 'd8 phy', prop: 'Paired: +2 to primary weapon damage to targets within Melee range.' },
+                    { name: 'Round Shield', trait: 'Strength', range: 'Melee', damage: 'd4 phy', prop: 'Protective: +1 to Armor Score.' }
+                ]
+            }
+        };
+
+        // --- APP LOGIC ---
+        document.addEventListener('DOMContentLoaded', () => {
+            let appState = {
+                currentView: 'dashboard', // 'dashboard', 'creator', 'sheet'
+                creatorMode: 'new', // 'new', 'level-up'
+                activeCharacterIndex: null,
+                currentStep: 0,
+                savedCharacters: [],
+                characterInProgress: null,
+            };
+
+            const emptyCharacter = () => ({
+                id: Date.now(),
+                name: '',
+                level: 1,
+                class: null,
+                subclass: null,
+                ancestry: null,
+                community: null,
+                traits: { Agility: 0, Strength: 0, Finesse: 0, Instinct: 0, Presence: 0, Knowledge: 0 },
+                hp: 0,
+                evasion: 0,
+                stress: 0,
+                armor: null,
+                weapon: null,
+                domainCards: [],
+            });
+
+            // --- DOM Elements ---
+            const dashboardView = document.getElementById('dashboard-view');
+            const creatorView = document.getElementById('creator-view');
+            const sheetView = document.getElementById('sheet-view');
+            const newCharacterButton = document.getElementById('new-character-button');
+            const backToDashboardButton = document.getElementById('back-to-dashboard-button');
+            const characterRoster = document.getElementById('character-roster');
+            const rosterPlaceholder = document.getElementById('roster-placeholder');
+            const importCharacterButton = document.getElementById('import-character-button');
+            const importFileInput = document.getElementById('import-file-input');
+            const sheetBackButton = document.getElementById('sheet-back-button');
+            
+            const stepTitleEl = document.getElementById('step-title');
+            const stepInstructionEl = document.getElementById('step-instruction');
+            const stepContentEl = document.getElementById('step-content');
+            const continueButton = document.getElementById('continue-button');
+            const randomChoiceButton = document.getElementById('random-choice-button');
+            const creatorModeDisplay = document.getElementById('creator-mode-display');
+
+            // --- Step Definitions ---
+            const creationSteps = [
+                { title: 'INPUT CALLSIGN', instruction: 'Enter your character\'s name.', render: renderNameInput, hasRandom: false },
+                { title: 'SELECT CLASS', instruction: 'Choose your primary role and abilities.', render: renderClassChoices, dataSource: () => db.classes, hasRandom: true },
+                { title: 'SELECT SUBCLASS', instruction: 'Specialize your class.', render: renderSubclassChoices, dataSource: () => appState.characterInProgress.class.subclasses, hasRandom: true },
+                { title: 'SELECT ANCESTRY', instruction: 'Determine your physical lineage.', render: renderAncestryChoices, dataSource: () => db.ancestries, hasRandom: true },
+                { title: 'SELECT COMMUNITY', instruction: 'Define your cultural upbringing.', render: renderCommunityChoices, dataSource: () => db.communities, hasRandom: true },
+                { title: 'ASSIGN TRAITS', instruction: 'Drag values to assign your trait modifiers.', render: renderTraitAssignment, hasRandom: true },
+                { title: 'SELECT ARMOR', instruction: 'Choose your defensive gear.', render: renderArmorChoices, dataSource: () => db.equipment.armor, hasRandom: true },
+                { title: 'SELECT WEAPON', instruction: 'Choose your primary weapon.', render: renderWeaponChoices, dataSource: () => db.equipment.weapons, hasRandom: true },
+                { title: 'SELECT DOMAIN CARDS', instruction: 'Choose two Level 1 cards from your available Domains.', render: renderDomainCardChoices, hasRandom: true },
+                { title: 'CREATION COMPLETE', instruction: 'Review your character sheet. System ready.', render: renderFinalSheet, hasRandom: false }
+            ];
+            
+            const levelUpSteps = [
+                { title: 'LEVEL UP', instruction: 'Choose one new Domain Card up to your new level.', render: renderLevelUpDomainChoices, hasRandom: true },
+                { title: 'PROGRESSION COMPLETE', instruction: 'Character file updated.', render: renderFinalSheet, hasRandom: false }
+            ];
+
+            // --- View & State Management ---
+            function switchView(view) {
+                appState.currentView = view;
+                document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+                document.getElementById(`${view}-view`).classList.remove('hidden');
+            }
+
+            function startNewCharacter() {
+                appState.creatorMode = 'new';
+                appState.characterInProgress = emptyCharacter();
+                appState.currentStep = 0;
+                creatorModeDisplay.textContent = ">> MODE: NEW CHARACTER <<";
+                switchView('creator');
+                renderCurrentStep();
+            }
+            
+            function startLevelUp(characterIndex) {
+                appState.creatorMode = 'level-up';
+                appState.activeCharacterIndex = characterIndex;
+                appState.characterInProgress = JSON.parse(JSON.stringify(appState.savedCharacters[characterIndex])); // Deep copy
+                appState.characterInProgress.level++;
+                appState.currentStep = 0;
+                creatorModeDisplay.textContent = `>> MODE: LEVEL UP [${appState.characterInProgress.name}] <<`;
+                switchView('creator');
+                renderCurrentStep();
+            }
+
+            function exitToDashboard() {
+                appState.characterInProgress = null;
+                appState.activeCharacterIndex = null;
+                renderDashboard();
+                switchView('dashboard');
+            }
+
+            // --- Dashboard Logic ---
+            function renderDashboard() {
+                characterRoster.innerHTML = '';
+                if (appState.savedCharacters.length === 0) {
+                    rosterPlaceholder.classList.remove('hidden');
+                    return;
+                }
+                rosterPlaceholder.classList.add('hidden');
+                appState.savedCharacters.forEach((char, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'crt-card p-4';
+                    card.innerHTML = `
+                        <h3 class="text-xl font-bold">${char.name}</h3>
+                        <p class="opacity-80">Lvl ${char.level} ${char.ancestry.name} ${char.class.name}</p>
+                        <div class="mt-4 flex flex-wrap gap-2">
+                            <button class="crt-button-secondary text-sm view-sheet-button" data-index="${index}">View Sheet</button>
+                            <button class="crt-button-secondary text-sm level-up-button" data-index="${index}">Level Up</button>
+                            <button class="crt-button-secondary text-sm export-button" data-index="${index}">Export</button>
+                            <button class="crt-button-secondary text-sm delete-button" data-index="${index}">Delete</button>
+                        </div>
+                    `;
+                    characterRoster.appendChild(card);
+                });
+                
+                document.querySelectorAll('.view-sheet-button').forEach(btn => btn.addEventListener('click', (e) => showCharacterSheet(parseInt(e.target.dataset.index))));
+                document.querySelectorAll('.level-up-button').forEach(btn => btn.addEventListener('click', (e) => startLevelUp(parseInt(e.target.dataset.index))));
+                document.querySelectorAll('.export-button').forEach(btn => btn.addEventListener('click', (e) => handleExport(parseInt(e.target.dataset.index))));
+                document.querySelectorAll('.delete-button').forEach(btn => btn.addEventListener('click', (e) => handleDelete(parseInt(e.target.dataset.index))));
+            }
+            
+            function handleExport(index) {
+                const char = appState.savedCharacters[index];
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(char, null, 2));
+                const downloadAnchorNode = document.createElement('a');
+                downloadAnchorNode.setAttribute("href", dataStr);
+                downloadAnchorNode.setAttribute("download", `${char.name.replace(/\s+/g, '_')}.dhc.json`);
+                document.body.appendChild(downloadAnchorNode);
+                downloadAnchorNode.click();
+                downloadAnchorNode.remove();
+            }
+
+            function handleDelete(index) {
+                const charName = appState.savedCharacters[index].name;
+                if (confirm(`>> CONFIRM DELETION OF CHARACTER FILE: ${charName}? THIS ACTION CANNOT BE UNDONE. <<`)) {
+                    appState.savedCharacters.splice(index, 1);
+                    renderDashboard();
+                }
+            }
+
+            function handleImport(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedChar = JSON.parse(e.target.result);
+                        if (importedChar && importedChar.id && importedChar.name && importedChar.class) {
+                            appState.savedCharacters.push(importedChar);
+                            renderDashboard();
+                        } else {
+                            alert(">> ERROR: INVALID CHARACTER FILE FORMAT. <<");
+                        }
+                    } catch (error) {
+                        alert(">> ERROR: FAILED TO PARSE CHARACTER FILE. <<");
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            }
+            
+            // --- Character Sheet Logic ---
+            function showCharacterSheet(index) {
+                const char = appState.savedCharacters[index];
+                if (!char) return;
+
+                const classData = db.classes.find(c => c.name === char.class.name);
+                const subclassData = classData.subclasses.find(sc => sc.name === char.subclass.name);
+                const ancestry = db.ancestries.find(a => a.name === char.ancestry.name);
+                const community = db.communities.find(c => c.name === char.community.name);
+
+                document.getElementById('sheet-name-display').textContent = `>> FILE: ${char.name.toUpperCase()} <<`;
+
+                // Column 1
+                document.getElementById('sheet-core-info').innerHTML = `
+                    <h3 class="text-xl mb-2">> CORE IDENT</h3>
+                    <p>> <strong>Class:</strong> ${char.class.name} <span class="info-icon">i<span class="info-tooltip">${classData.desc}</span></span></p>
+                    <p>> <strong>Subclass:</strong> ${char.subclass.name} <span class="info-icon">i<span class="info-tooltip">${subclassData.cards[0].text}</span></span></p>
+                    <p>> <strong>Level:</strong> ${char.level}</p>
+                `;
+                document.getElementById('sheet-combat-stats').innerHTML = `
+                    <h3 class="text-xl mb-2">> COMBAT STATS</h3>
+                    <p>> <strong>HP:</strong> ${char.hp}</p>
+                    <p>> <strong>Evasion:</strong> ${char.evasion}</p>
+                    <p>> <strong>Stress:</strong> ${char.stress}</p>
+                `;
+                let traitsHTML = '<h3 class="text-xl mb-2">> TRAITS</h3>';
+                for (const [trait, value] of Object.entries(char.traits)) {
+                    traitsHTML += `<p>> <strong>${trait}:</strong> ${value >= 0 ? '+' : ''}${value}</p>`;
+                }
+                document.getElementById('sheet-traits').innerHTML = traitsHTML;
+
+                // Column 2
+                document.getElementById('sheet-heritage').innerHTML = `
+                    <h3 class="text-xl mb-2">> HERITAGE: ${ancestry.name} ${community.name}</h3>
+                    <div class="pl-4">
+                        <p class="font-bold">> Ancestry (${ancestry.name}) <span class="info-icon">i<span class="info-tooltip">${ancestry.desc}</span></span></p>
+                        <div class="pl-4 text-base opacity-80">
+                            <p><strong>${ancestry.f1.name}:</strong> ${ancestry.f1.text}</p>
+                            <p class="mt-1"><strong>${ancestry.f2.name}:</strong> ${ancestry.f2.text}</p>
+                        </div>
+                        <p class="font-bold mt-2">> Community (${community.name}) <span class="info-icon">i<span class="info-tooltip">${community.desc}</span></span></p>
+                         <div class="pl-4 text-base opacity-80">
+                            <p><strong>${community.feature.name}:</strong> ${community.feature.text}</p>
+                        </div>
+                    </div>
+                `;
+                
+                let classFeaturesHTML = `<h3 class="text-xl mb-2">> CLASS & SUBCLASS FEATURES</h3><div class="pl-4 space-y-2">`;
+                subclassData.cards.forEach(card => {
+                    classFeaturesHTML += `<div><p class="font-bold">> ${card.name}:</p><p class="text-base opacity-80 pl-4">${card.text}</p></div>`;
+                });
+                classFeaturesHTML += `</div>`;
+                document.getElementById('sheet-class-features').innerHTML = classFeaturesHTML;
+
+                // Column 3
+                document.getElementById('sheet-equipment').innerHTML = `
+                    <h3 class="text-xl mb-2">> EQUIPMENT</h3>
+                    <div class="pl-4">
+                        <p class="font-bold">> ${char.weapon.name}:</p>
+                        <p class="text-base opacity-80 pl-4">Dmg: ${char.weapon.damage}, Range: ${char.weapon.range}, ${char.weapon.prop}</p>
+                        <p class="font-bold mt-2">> ${char.armor.name}:</p>
+                        <p class="text-base opacity-80 pl-4">Thresholds: ${char.armor.minor}/${char.armor.severe}, Score: ${char.armor.score}, ${char.armor.prop}</p>
+                    </div>
+                `;
+                let domainHTML = `<h3 class="text-xl mb-2">> DOMAIN CARDS</h3><div class="pl-4 space-y-2">`;
+                char.domainCards.forEach(card => {
+                    domainHTML += `<div><p class="font-bold">> ${card.name} (Lvl ${card.level}):</p><p class="text-base opacity-80 pl-4">${card.text}</p></div>`;
+                });
+                domainHTML += `</div>`;
+                document.getElementById('sheet-domain-cards').innerHTML = domainHTML;
+
+                switchView('sheet');
+            }
+
+
+            // --- Core Creator Logic ---
+            function renderCurrentStep() {
+                const steps = appState.creatorMode === 'new' ? creationSteps : levelUpSteps;
+                const step = steps[appState.currentStep];
+
+                stepTitleEl.textContent = `// STEP ${appState.currentStep + 1}: ${step.title}`;
+                stepInstructionEl.textContent = `> ${step.instruction}`;
+                stepContentEl.innerHTML = '';
+                stepContentEl.className = 'gap-4'; // Reset class
+                continueButton.classList.add('hidden');
+                randomChoiceButton.classList.toggle('hidden', !step.hasRandom);
+
+                step.render();
+                updateSummary();
+            }
+
+            function nextStep() {
+                const steps = appState.creatorMode === 'new' ? creationSteps : levelUpSteps;
+                if (appState.currentStep < steps.length - 1) {
+                    appState.currentStep++;
+                    renderCurrentStep();
+                }
+            }
+
+            function handleRandomChoice() {
+                const steps = appState.creatorMode === 'new' ? creationSteps : levelUpSteps;
+                const step = steps[appState.currentStep];
+                
+                if (step.title === 'ASSIGN TRAITS') {
+                    handleRandomTraitAssignment();
+                    return;
+                }
+                
+                if (step.title === 'SELECT DOMAIN CARDS' && appState.creatorMode === 'new') {
+                    handleRandomDomainCardChoices(2);
+                    return;
+                }
+                
+                if (step.title === 'LEVEL UP') {
+                    handleRandomDomainCardChoices(1);
+                    return;
+                }
+
+                if (!step.dataSource) return;
+
+                const choices = step.dataSource();
+                const randomChoice = choices[Math.floor(Math.random() * choices.length)];
+                
+                const clickHandlers = {
+                    'SELECT CLASS': (item) => {
+                        appState.characterInProgress.class = item;
+                        appState.characterInProgress.hp = item.hp;
+                        appState.characterInProgress.evasion = item.evasion;
+                        appState.characterInProgress.stress = 6;
+                    },
+                    'SELECT SUBCLASS': (item) => { appState.characterInProgress.subclass = item; },
+                    'SELECT ANCESTRY': (item) => {
+                        appState.characterInProgress.ancestry = item;
+                        if (item.name === 'Human') appState.characterInProgress.stress++;
+                    },
+                    'SELECT COMMUNITY': (item) => { appState.characterInProgress.community = item; },
+                    'SELECT ARMOR': (item) => { appState.characterInProgress.armor = item; },
+                    'SELECT WEAPON': (item) => { appState.characterInProgress.weapon = item; },
+                };
+
+                if (clickHandlers[step.title]) {
+                    clickHandlers[step.title](randomChoice);
+                    nextStep();
+                }
+            }
+
+            function updateSummary() {
+                const char = appState.characterInProgress;
+                if (!char) return;
+                document.getElementById('summary-name').textContent = char.name || '...';
+                document.getElementById('summary-level').textContent = char.level || '...';
+                document.getElementById('summary-class').textContent = char.class ? char.class.name : '...';
+                document.getElementById('summary-subclass').textContent = char.subclass ? char.subclass.name : '...';
+                document.getElementById('summary-ancestry').textContent = char.ancestry ? char.ancestry.name : '...';
+                document.getElementById('summary-community').textContent = char.community ? char.community.name : '...';
+                document.getElementById('summary-hp').textContent = char.hp || '...';
+                document.getElementById('summary-evasion').textContent = char.evasion || '...';
+                document.getElementById('summary-stress').textContent = char.stress || '...';
+                
+                const traitsEl = document.getElementById('summary-traits');
+                let traitsHTML = '<p>> TRAITS:</p>';
+                for(const [trait, value] of Object.entries(char.traits)) {
+                    traitsHTML += `<p class="pl-4">> ${trait}: <span class="text-white">${value >= 0 ? '+' : ''}${value}</span></p>`;
+                }
+                traitsEl.innerHTML = traitsHTML;
+                
+                const equipmentEl = document.getElementById('summary-equipment');
+                let equipmentHTML = '<p>> EQUIPMENT:</p>';
+                equipmentHTML += `<p class="pl-4">> Armor: <span class="text-white">${char.armor ? char.armor.name : '...'}</span></p>`;
+                equipmentHTML += `<p class="pl-4">> Weapon: <span class="text-white">${char.weapon ? char.weapon.name : '...'}</span></p>`;
+                equipmentEl.innerHTML = equipmentHTML;
+
+                const domainsEl = document.getElementById('summary-domains');
+                let domainsHTML = '<p>> DOMAIN CARDS:</p>';
+                char.domainCards.forEach(card => {
+                     domainsHTML += `<p class="pl-4">> ${card.name} (L${card.level})</p>`;
+                });
+                domainsEl.innerHTML = domainsHTML || '<p class="pl-4">...</p>';
+            }
+
+            // --- RENDER FUNCTIONS FOR EACH STEP ---
+            function createCard(item, contentHTML, clickHandler) {
+                const card = document.createElement('div');
+                card.className = 'crt-card p-4 flex flex-col justify-between';
+                card.innerHTML = contentHTML;
+                card.onclick = () => clickHandler(item);
+                stepContentEl.appendChild(card);
+            }
+
+            function renderNameInput() {
+                stepContentEl.innerHTML = `<input type="text" id="name-input" class="crt-input text-2xl" placeholder="Awaiting input...">`;
+                continueButton.classList.remove('hidden');
+                continueButton.onclick = () => {
+                    appState.characterInProgress.name = document.getElementById('name-input').value.trim();
+                    if (appState.characterInProgress.name) nextStep();
+                };
+            }
+
+            function renderClassChoices() {
+                stepContentEl.classList.add('grid', 'grid-cols-1', 'sm:grid-cols-2', 'lg:grid-cols-3');
+                db.classes.sort((a,b) => a.name.localeCompare(b.name)).forEach(c => {
+                    createCard(c, `
+                        <div><h3 class="text-xl font-bold">${c.name} ${c.playtest ? '[TEST]' : ''}</h3><p class="text-sm opacity-80">${c.desc}</p></div>
+                        <div class="mt-2 text-xs opacity-70"><p>HP: ${c.hp} | Evasion: ${c.evasion}</p><p>Domains: ${c.domains.join(', ')}</p></div>`, 
+                        (item) => {
+                            appState.characterInProgress.class = item;
+                            appState.characterInProgress.hp = item.hp;
+                            appState.characterInProgress.evasion = item.evasion;
+                            appState.characterInProgress.stress = 6;
+                            nextStep();
+                        });
+                });
+            }
+
+            function renderSubclassChoices() {
+                stepContentEl.classList.add('grid', 'grid-cols-1', 'sm:grid-cols-2');
+                appState.characterInProgress.class.subclasses.forEach(sc => {
+                    createCard(sc, `<h3 class="text-xl font-bold">${sc.name}</h3><p class="text-sm opacity-80 mt-2">${sc.cards[0].text}</p>`, 
+                    (item) => {
+                        appState.characterInProgress.subclass = item;
+                        nextStep();
+                    });
+                });
+            }
+
+            function renderAncestryChoices() {
+                stepContentEl.classList.add('grid', 'grid-cols-1', 'sm:grid-cols-2', 'lg:grid-cols-3');
+                db.ancestries.sort((a,b) => a.name.localeCompare(b.name)).forEach(a => {
+                    createCard(a, `<h3 class="text-xl font-bold">${a.name}</h3><p class="text-sm opacity-80">${a.desc}</p>`, 
+                    (item) => {
+                        appState.characterInProgress.ancestry = item;
+                        if (item.name === 'Human') appState.characterInProgress.stress++;
+                        nextStep();
+                    });
+                });
+            }
+
+            function renderCommunityChoices() {
+                stepContentEl.classList.add('grid', 'grid-cols-1', 'sm:grid-cols-2', 'lg:grid-cols-3');
+                db.communities.sort((a,b) => a.name.localeCompare(b.name)).forEach(c => {
+                    createCard(c, `<h3 class="text-xl font-bold">${c.name}</h3><p class="text-sm opacity-80">${c.desc}</p>`, 
+                    (item) => {
+                        appState.characterInProgress.community = item;
+                        nextStep();
+                    });
+                });
+            }
+            
+            function renderTraitAssignment() {
+                const traitNames = ['Agility', 'Strength', 'Finesse', 'Instinct', 'Presence', 'Knowledge'];
+                const values = [2, 1, 1, 0, 0, -1];
+
+                stepContentEl.innerHTML = `
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <h3 class="text-lg mb-2 text-center">VALUE POOL</h3>
+                            <div id="trait-value-pool" class="p-2 border border-dashed border-green-500/50 min-h-[120px] flex flex-wrap gap-2 justify-center items-center">
+                                ${values.map((v, i) => `<div class="trait-value p-2 text-xl" draggable="true" data-value="${v}" id="val-${i}">${v >= 0 ? '+' : ''}${v}</div>`).join('')}
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-lg mb-2 text-center">ASSIGNED TRAITS</h3>
+                            <div id="trait-slots-container" class="space-y-2">
+                                ${traitNames.map(t => `
+                                    <div class="flex items-center gap-4">
+                                        <label class="w-1/3 text-right">${t}:</label>
+                                        <div class="trait-slot w-2/3 p-1 flex justify-center items-center" data-trait="${t}"></div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Drag and drop logic
+                const draggables = document.querySelectorAll('.trait-value');
+                const dropzones = document.querySelectorAll('.trait-slot');
+                let draggedItem = null;
+
+                draggables.forEach(draggable => {
+                    draggable.addEventListener('dragstart', (e) => {
+                        draggedItem = e.target;
+                        setTimeout(() => e.target.classList.add('dragging'), 0);
+                    });
+                    draggable.addEventListener('dragend', (e) => {
+                        e.target.classList.remove('dragging');
+                        draggedItem = null;
+                    });
+                });
+
+                dropzones.forEach(zone => {
+                    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('over'); });
+                    zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+                    zone.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        zone.classList.remove('over');
+                        if (draggedItem && !zone.children.length) {
+                            zone.appendChild(draggedItem);
+                            checkAllSlotsFilled();
+                        }
+                    });
+                });
+                
+                document.getElementById('trait-value-pool').addEventListener('dragover', e => e.preventDefault());
+                document.getElementById('trait-value-pool').addEventListener('drop', e => {
+                    e.preventDefault();
+                    document.getElementById('trait-value-pool').appendChild(draggedItem);
+                    checkAllSlotsFilled();
+                });
+
+                function checkAllSlotsFilled() {
+                    const filledSlots = Array.from(dropzones).filter(z => z.children.length > 0).length;
+                    continueButton.classList.toggle('hidden', filledSlots !== 6);
+                }
+
+                continueButton.onclick = () => {
+                    dropzones.forEach(zone => {
+                        const trait = zone.dataset.trait;
+                        const value = zone.querySelector('.trait-value').dataset.value;
+                        appState.characterInProgress.traits[trait] = parseInt(value);
+                    });
+                    nextStep();
+                };
+            }
+            
+            function handleRandomTraitAssignment() {
+                const values = [2, 1, 1, 0, 0, -1];
+                for (let i = values.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [values[i], values[j]] = [values[j], values[i]];
+                }
+                
+                const slots = document.querySelectorAll('.trait-slot');
+                const pool = document.getElementById('trait-value-pool');
+                
+                slots.forEach((slot, index) => {
+                    const value = values[index];
+                    const token = Array.from(pool.children).find(child => child.dataset.value == value && !child.parentElement.classList.contains('trait-slot'));
+                    if (token) slot.appendChild(token);
+                });
+                
+                continueButton.classList.remove('hidden');
+                continueButton.click();
+            }
+
+            function renderArmorChoices() {
+                stepContentEl.classList.add('grid', 'grid-cols-1', 'sm:grid-cols-2', 'lg:grid-cols-3');
+                db.equipment.armor.forEach(item => {
+                    createCard(item, `<h3 class="text-xl font-bold">${item.name}</h3><p class="text-sm opacity-80">Thresholds: ${item.minor}/${item.severe} | Score: ${item.score}</p><p class="text-xs opacity-70 mt-1">${item.prop}</p>`,
+                    (item) => {
+                        appState.characterInProgress.armor = item;
+                        nextStep();
+                    });
+                });
+            }
+            
+            function renderWeaponChoices() {
+                stepContentEl.classList.add('grid', 'grid-cols-1', 'sm:grid-cols-2', 'lg:grid-cols-3');
+                db.equipment.weapons.forEach(item => {
+                    createCard(item, `<h3 class="text-xl font-bold">${item.name}</h3><p class="text-sm opacity-80">Damage: ${item.damage} | Range: ${item.range}</p><p class="text-xs opacity-70 mt-1">Trait: ${item.trait} | ${item.prop}</p>`,
+                    (item) => {
+                        appState.characterInProgress.weapon = item;
+                        nextStep();
+                    });
+                });
+            }
+
+            function renderDomainCardChoices() {
+                stepContentEl.classList.add('grid', 'grid-cols-1', 'sm:grid-cols-2');
+                const availableDomains = appState.characterInProgress.class.domains;
+                const cardsToRender = availableDomains.flatMap(domainName => db.domains[domainName].filter(c => c.level === 1));
+
+                let selectedCount = 0;
+                const maxSelection = 2;
+                stepInstructionEl.textContent = `> Choose ${maxSelection} Level 1 cards from your available Domains (${availableDomains.join(' & ')}). Selected: ${selectedCount}/${maxSelection}`;
+
+                cardsToRender.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'crt-card p-4';
+                    card.innerHTML = `<h3 class="text-xl font-bold">${item.name}</h3><p class="text-sm opacity-80">${item.text}</p>`;
+                    card.onclick = () => {
+                        if (card.classList.contains('border-yellow-400')) {
+                            card.classList.remove('border-yellow-400');
+                            appState.characterInProgress.domainCards = appState.characterInProgress.domainCards.filter(c => c.name !== item.name);
+                            selectedCount--;
+                        } else if (selectedCount < maxSelection) {
+                            card.classList.add('border-yellow-400');
+                            appState.characterInProgress.domainCards.push(item);
+                            selectedCount++;
+                        }
+                        stepInstructionEl.textContent = `> Choose ${maxSelection} Level 1 cards. Selected: ${selectedCount}/${maxSelection}`;
+                        continueButton.classList.toggle('hidden', selectedCount !== maxSelection);
+                    };
+                    stepContentEl.appendChild(card);
+                });
+                
+                continueButton.onclick = () => {
+                    if(appState.characterInProgress.domainCards.length === maxSelection) nextStep();
+                };
+            }
+            
+            function handleRandomDomainCardChoices(numToChoose) {
+                const char = appState.characterInProgress;
+                const isLevelUp = appState.creatorMode === 'level-up';
+                const levelCap = isLevelUp ? char.level : 1;
+                
+                const availableDomains = char.class.domains;
+                const cardsToRender = availableDomains.flatMap(domainName => 
+                    db.domains[domainName].filter(c => c.level <= levelCap && !char.domainCards.some(owned => owned.name === c.name))
+                );
+
+                for (let i = cardsToRender.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [cardsToRender[i], cardsToRender[j]] = [cardsToRender[j], cardsToRender[i]];
+                }
+
+                const selectedCards = cardsToRender.slice(0, numToChoose);
+                selectedCards.forEach(card => char.domainCards.push(card));
+                nextStep();
+            }
+            
+            function renderLevelUpDomainChoices() {
+                stepContentEl.classList.add('grid', 'grid-cols-1', 'sm:grid-cols-2');
+                const char = appState.characterInProgress;
+                const availableDomains = char.class.domains;
+                const cardsToRender = availableDomains.flatMap(domainName => 
+                    db.domains[domainName].filter(c => c.level <= char.level && !char.domainCards.some(owned => owned.name === c.name))
+                );
+                
+                stepInstructionEl.textContent = `> Choose 1 new Domain Card up to Level ${char.level}.`;
+                
+                if (cardsToRender.length === 0) {
+                    stepContentEl.innerHTML = `<p class="col-span-full opacity-70 text-center">> NO NEW CARDS AVAILABLE AT THIS LEVEL. <</p>`;
+                    continueButton.classList.remove('hidden');
+                    continueButton.onclick = nextStep;
+                    return;
+                }
+
+                cardsToRender.forEach(item => {
+                    createCard(item, `<h3 class="text-xl font-bold">${item.name} (L${item.level})</h3><p class="text-base opacity-80">${item.text}</p>`,
+                    (item) => {
+                        char.domainCards.push(item);
+                        nextStep();
+                    });
+                });
+            }
+
+            function renderFinalSheet() {
+                const char = appState.characterInProgress;
+                
+                if (appState.creatorMode === 'new') {
+                    stepContentEl.innerHTML = `<p class="text-2xl">>> CHARACTER FILE: <span class="text-white">${char.name}</span> LOADED. SYSTEM READY FOR DEPLOYMENT. <<</p>`;
+                    continueButton.textContent = 'SAVE & EXIT';
+                    continueButton.onclick = () => {
+                        appState.savedCharacters.push(char);
+                        exitToDashboard();
+                    };
+                } else {
+                     stepContentEl.innerHTML = `<p class="text-2xl">>> CHARACTER FILE: <span class="text-white">${char.name}</span> UPDATED TO LEVEL ${char.level}. <<</p>`;
+                    continueButton.textContent = 'SAVE & EXIT';
+                    continueButton.onclick = () => {
+                        appState.savedCharacters[appState.activeCharacterIndex] = char;
+                        exitToDashboard();
+                    };
+                }
+                continueButton.classList.remove('hidden');
+            }
+
+            // --- Event Listeners ---
+            newCharacterButton.addEventListener('click', startNewCharacter);
+            backToDashboardButton.addEventListener('click', exitToDashboard);
+            randomChoiceButton.addEventListener('click', handleRandomChoice);
+            importCharacterButton.addEventListener('click', () => importFileInput.click());
+            importFileInput.addEventListener('change', handleImport);
+            sheetBackButton.addEventListener('click', exitToDashboard);
+
+            // --- STARTUP ---
+            renderDashboard();
+            switchView('dashboard');
+        });
+    </script>
+</body>
+</html>
