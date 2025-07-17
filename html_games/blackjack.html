@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>B.L.A.C.K.J.A.C.K.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --crt-bg-color: #1a1a1a;
+            --crt-text-color: #00ff00;      /* Neon Green */
+            --crt-accent-color: #ffbf00;     /* Amber */
+            --crt-border-color: #008000;     /* Darker Green */
+            --crt-shadow-color: #00ff00b3;
+            --crt-error-color: #ff0000;
+            --crt-highlight-color: #00ff0065;
+            --crt-selected-color: #00ffff4d; /* Cyan for selection */
+            --crt-active-hand-color: #ffbf00; /* Amber for active hand */
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--crt-bg-color);
+            color: var(--crt-text-color);
+            font-family: 'VT323', monospace;
+            display: flex;
+            flex-direction: column; /* Changed for header */
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-size: 1.2rem;
+            text-shadow: 0 0 3px var(--crt-shadow-color);
+            overflow: hidden;
+            padding-top: 60px; /* Space for header */
+        }
+        
+        /* --- New Header & Nav Menu --- */
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 1rem;
+            background-color: #000000cc;
+            border-bottom: 2px solid var(--crt-border-color);
+            z-index: 60;
+        }
+
+        .site-title {
+            color: var(--crt-accent-color);
+            font-size: 1.5rem;
+            text-shadow: 0 0 5px var(--crt-accent-color);
+        }
+        
+        .hamburger-menu {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            z-index: 71; /* Above nav panel */
+        }
+        
+        .hamburger-menu .bar {
+            display: block;
+            width: 30px;
+            height: 3px;
+            margin: 6px auto;
+            background-color: var(--crt-text-color);
+            transition: 0.4s;
+        }
+
+        .nav-menu {
+            position: fixed;
+            left: -100%;
+            top: 0;
+            width: 300px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            background-color: var(--crt-bg-color);
+            border-right: 2px solid var(--crt-border-color);
+            transition: left 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            z-index: 70;
+        }
+
+        .nav-menu.open {
+            left: 0;
+        }
+
+        .nav-menu a {
+            color: var(--crt-text-color);
+            text-decoration: none;
+            font-size: 1.5rem;
+            padding: 0.5rem 1rem;
+            transition: color 0.2s;
+        }
+        
+        .nav-menu a:hover {
+            color: var(--crt-accent-color);
+            text-shadow: 0 0 5px var(--crt-accent-color);
+        }
+
+
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0) 0px, rgba(0, 0, 0, 0.3) 1px, rgba(0, 0, 0, 0) 2px);
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .crt-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 99;
+            box-shadow: inset 0 0 100px 20px rgba(0,0,0,0.7);
+            animation: flicker 0.15s infinite;
+        }
+
+        @keyframes flicker {
+            0% { opacity: 0.95; }
+            50% { opacity: 1; }
+            100% { opacity: 0.95; }
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 900px;
+            border: 2px solid var(--crt-border-color);
+            padding: 1.5rem;
+            background: #0000004d;
+            box-shadow: 0 0 15px var(--crt-border-color);
+            position: relative;
+            z-index: 1;
+            margin: 1rem;
+        }
+
+        header {
+            text-align: center;
+            border-bottom: 1px solid var(--crt-border-color);
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        header h1 {
+            font-size: 1.8rem;
+            color: var(--crt-accent-color);
+            text-shadow: 0 0 5px var(--crt-accent-color);
+        }
+
+        #game-board {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .hand-area {
+            min-height: 140px;
+            border: 1px dashed var(--crt-border-color);
+            padding: 1rem;
+        }
+        
+        #player-area-container {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .player-hand-area {
+            flex: 1;
+            min-height: 140px;
+            border: 1px dashed var(--crt-border-color);
+            padding: 1rem;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .player-hand-area.active {
+            border-color: var(--crt-active-hand-color);
+            box-shadow: 0 0 10px var(--crt-active-hand-color);
+        }
+
+        .hand-area h2, .player-hand-area h2 {
+            margin-bottom: 0.5rem;
+            font-size: 1.3rem;
+        }
+
+        .cards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            min-height: 110px;
+        }
+
+        .card {
+            width: 80px;
+            height: 110px;
+            border: 1px solid var(--crt-text-color);
+            background-color: var(--crt-bg-color);
+            border-radius: 5px;
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 1.5rem;
+            position: relative;
+            animation: deal-in 0.3s ease-out;
+        }
+        
+        @keyframes deal-in {
+            from { transform: translateY(-100px) rotateX(90deg); opacity: 0; }
+            to { transform: translateY(0) rotateX(0deg); opacity: 1; }
+        }
+
+        .card.red { color: var(--crt-error-color); border-color: var(--crt-error-color); }
+        .card .suit { font-size: 2rem; line-height: 1; }
+        .card .rank-top { align-self: flex-start; }
+        .card .rank-bottom { align-self: flex-end; transform: rotate(180deg); }
+
+        .card.hidden {
+            background-image: repeating-linear-gradient(45deg, var(--crt-border-color), var(--crt-border-color) 5px, var(--crt-bg-color) 5px, var(--crt-bg-color) 10px);
+            color: transparent;
+        }
+        .card.hidden .suit, .card.hidden .rank-top, .card.hidden .rank-bottom { visibility: hidden; }
+
+        #message-log {
+            border: 1px solid var(--crt-border-color);
+            padding: 0.5rem 1rem;
+            margin-bottom: 1rem;
+            min-height: 40px;
+            background-color: #00000080;
+        }
+
+        #message-log p {
+            animation: typing 1.5s steps(40, end);
+            overflow: hidden;
+            white-space: nowrap;
+            border-right: .15em solid var(--crt-text-color);
+        }
+
+        @keyframes typing { from { width: 0 } to { width: 100% } }
+        
+        #controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        #player-info { text-align: center; font-size: 1.5rem; color: var(--crt-accent-color); }
+
+        button, input {
+            font-family: 'VT323', monospace;
+            background-color: transparent;
+            color: var(--crt-text-color);
+            border: 1px solid var(--crt-text-color);
+            padding: 0.75rem 1.5rem;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+            text-shadow: 0 0 3px var(--crt-shadow-color);
+        }
+
+        button:hover:not(:disabled) {
+            background-color: var(--crt-highlight-color);
+            color: var(--crt-accent-color);
+            border-color: var(--crt-accent-color);
+        }
+        
+        button:disabled {
+            color: var(--crt-border-color);
+            border-color: var(--crt-border-color);
+            cursor: not-allowed;
+            text-shadow: none;
+        }
+
+        input[type="number"] { width: 80px; text-align: center; background-color: #00000080; }
+        .hidden { display: none !important; }
+
+        #tips-toggle-button {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.5rem;
+            border: 1px dashed var(--crt-accent-color);
+            color: var(--crt-accent-color);
+        }
+
+        #tips-panel {
+            position: fixed;
+            top: 0;
+            right: -100%;
+            width: 100%;
+            max-width: 550px; /* Increased width for table */
+            height: 100%;
+            background-color: var(--crt-bg-color);
+            border-left: 2px solid var(--crt-border-color);
+            box-shadow: -10px 0 20px rgba(0,0,0,0.5);
+            padding: 2rem;
+            z-index: 50;
+            transition: right 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            overflow-y: auto;
+        }
+        
+        #tips-panel.open { right: 0; }
+        #close-tips-button { position: absolute; top: 1rem; right: 1rem; font-size: 1.5rem; padding: 0.2rem 0.8rem; }
+        #tips-panel h2 { color: var(--crt-accent-color); margin-bottom: 1.5rem; }
+        #tips-panel h3 { margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--crt-border-color); }
+        
+        /* Strategy Table Styles */
+        .strategy-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 1rem;
+            margin-top: 1rem;
+        }
+        .strategy-table th, .strategy-table td {
+            border: 1px solid var(--crt-border-color);
+            padding: 0.3rem;
+            text-align: center;
+        }
+        .strategy-table th {
+            background-color: var(--crt-border-color);
+        }
+        .strategy-table td.player-hand {
+            background-color: #00ff0022;
+            font-weight: bold;
+        }
+        .strat-H { background-color: #ff000080; color: white; } /* Hit */
+        .strat-S { background-color: #00800080; color: white; } /* Stand */
+        .strat-D { background-color: #ffbf0080; color: black; } /* Double */
+        .strat-P { background-color: #00ffff80; color: black; } /* Split */
+
+    </style>
+</head>
+<body>
+    <header class="top-bar">
+        <div class="hamburger-menu">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </div>
+        <h1 class="site-title">// W.O.P.R. LOBBY //</h1>
+        <nav class="nav-menu">
+            <a href="#">🏠 Dashboard</a>
+            <a href="#">🌩️ Radar</a>
+            <a href="#">🧩 Sudoku</a>
+            <a href="#">🧩 Tic-Tac-Toe</a>
+            <a href="#">🧩 HoldEm</a>
+        </nav>
+    </header>
+    
+    <div class="crt-overlay"></div>
+    <div class="scanline"></div>
+
+    <div id="game-container">
+        <header>
+            <h1>//-B.L.A.C.K.J.A.C.K.-//</h1>
+            <p>> A STRANGE GAME. THE ONLY WINNING MOVE IS NOT TO PLAY.</p>
+        </header>
+
+        <div id="game-board">
+            <div id="dealer-area" class="hand-area">
+                <h2>DEALER: <span id="dealer-score">0</span></h2>
+                <div id="dealer-cards" class="cards"></div>
+            </div>
+            <div id="player-area-container">
+                <!-- Player hands will be dynamically inserted here -->
+            </div>
+        </div>
+
+        <div id="message-log">
+            <p id="messages">> PLACE YOUR BET TO BEGIN TRANSMISSION.</p>
+        </div>
+
+        <div id="controls">
+            <div id="betting-controls">
+                <label for="bet-amount">BET:</label>
+                <input type="number" id="bet-amount" value="10" min="5" step="5">
+                <button id="bet-button">PLACE BET</button>
+            </div>
+            <div id="action-controls" class="hidden">
+                <button id="hit-button">HIT</button>
+                <button id="stand-button">STAND</button>
+                <button id="double-button">DOUBLE</button>
+                <button id="split-button" class="hidden">SPLIT</button>
+            </div>
+        </div>
+
+        <div id="player-info">
+            <p>BANK: $<span id="player-bank">1000</span></p>
+        </div>
+
+        <button id="tips-toggle-button">STRATEGY [?]</button>
+    </div>
+
+    <div id="tips-panel">
+        <button id="close-tips-button">X</button>
+        <h2>// BLACKJACK STRATEGY_BRIEFING.TXT //</h2>
+        <p>Dealer stands on all 17s. Double after split is allowed.</p>
+        
+        <h3>KEY:</h3>
+        <ul>
+            <li><span class="strat-H" style="padding: 2px 5px;">H</span> = Hit</li>
+            <li><span class="strat-S" style="padding: 2px 5px;">S</span> = Stand</li>
+            <li><span class="strat-D" style="padding: 2px 5px;">D</span> = Double</li>
+            <li><span class="strat-P" style="padding: 2px 5px;">P</span> = Split</li>
+        </ul>
+
+        <h3>Hard Totals</h3>
+        <table class="strategy-table">
+            <thead>
+                <tr><th>Player</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th><th>A</th></tr>
+            </thead>
+            <tbody>
+                <tr><td class="player-hand">17-20</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td></tr>
+                <tr><td class="player-hand">16</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">15</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">14</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">13</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">12</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">11</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td></tr>
+                <tr><td class="player-hand">10</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">9</td><td class="strat-H">H</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">5-8</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Soft Totals</h3>
+        <table class="strategy-table">
+             <thead>
+                <tr><th>Player</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th><th>A</th></tr>
+            </thead>
+            <tbody>
+                <tr><td class="player-hand">A,9</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td></tr>
+                <tr><td class="player-hand">A,8</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-D">D</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td></tr>
+                <tr><td class="player-hand">A,7</td><td class="strat-S">S</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">A,6</td><td class="strat-H">H</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">A,5</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">A,4</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">A,3</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">A,2</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Pairs</h3>
+        <table class="strategy-table">
+             <thead>
+                <tr><th>Player</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th><th>A</th></tr>
+            </thead>
+            <tbody>
+                <tr><td class="player-hand">A,A</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td></tr>
+                <tr><td class="player-hand">10,10</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td><td class="strat-S">S</td></tr>
+                <tr><td class="player-hand">9,9</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-S">S</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-S">S</td><td class="strat-S">S</td></tr>
+                <tr><td class="player-hand">8,8</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td></tr>
+                <tr><td class="player-hand">7,7</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">6,6</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">5,5</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-D">D</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">4,4</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">3,3</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+                <tr><td class="player-hand">2,2</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-P">P</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td><td class="strat-H">H</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Elements ---
+            const bettingControls = document.getElementById('betting-controls');
+            const actionControls = document.getElementById('action-controls');
+            const betButton = document.getElementById('bet-button');
+            const hitButton = document.getElementById('hit-button');
+            const standButton = document.getElementById('stand-button');
+            const doubleButton = document.getElementById('double-button');
+            const splitButton = document.getElementById('split-button');
+            const betAmountInput = document.getElementById('bet-amount');
+            
+            const playerBankEl = document.getElementById('player-bank');
+            const messagesEl = document.getElementById('messages');
+            const playerAreaContainer = document.getElementById('player-area-container');
+            const dealerCardsEl = document.getElementById('dealer-cards');
+            const dealerScoreEl = document.getElementById('dealer-score');
+
+            const tipsToggleButton = document.getElementById('tips-toggle-button');
+            const closeTipsButton = document.getElementById('close-tips-button');
+            const tipsPanel = document.getElementById('tips-panel');
+
+            const hamburgerMenu = document.querySelector('.hamburger-menu');
+            const navMenu = document.querySelector('.nav-menu');
+
+            // --- Game State ---
+            let playerBank = 1000;
+            let deck = [];
+            let dealerHand = [];
+            let playerHands = [];
+            let playerBets = [];
+            let currentHandIndex = 0;
+            let playerTurn = false;
+
+            const SUITS = ['♥', '♦', '♣', '♠'];
+            const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+            const RANK_VALUES = {'2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, '9':9, '10':10, 'J':10, 'Q':10, 'K':10, 'A':11};
+
+            // --- Game Logic ---
+
+            function createAndShuffleDeck() {
+                deck = [];
+                for (let i = 0; i < 6; i++) {
+                    for (const suit of SUITS) {
+                        for (const rank of RANKS) {
+                            deck.push({ rank, suit });
+                        }
+                    }
+                }
+                for (let i = deck.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [deck[i], deck[j]] = [deck[j], deck[i]];
+                }
+            }
+
+            function getHandScore(hand) {
+                let score = 0;
+                let aceCount = 0;
+                hand.forEach(card => {
+                    score += RANK_VALUES[card.rank];
+                    if (card.rank === 'A') aceCount++;
+                });
+                while (score > 21 && aceCount > 0) {
+                    score -= 10;
+                    aceCount--;
+                }
+                return score;
+            }
+
+            function renderCard(card, container, isHidden = false) {
+                const cardEl = document.createElement('div');
+                cardEl.classList.add('card');
+                if (isHidden) {
+                    cardEl.classList.add('hidden');
+                    cardEl.dataset.rank = card.rank;
+                    cardEl.dataset.suit = card.suit;
+                } else {
+                    if (['♥', '♦'].includes(card.suit)) cardEl.classList.add('red');
+                    cardEl.innerHTML = `<span class="rank-top">${card.rank}</span><span class="suit">${card.suit}</span><span class="rank-bottom">${card.rank}</span>`;
+                }
+                container.appendChild(cardEl);
+            }
+
+            function renderAllHands() {
+                playerAreaContainer.innerHTML = '';
+                playerHands.forEach((hand, index) => {
+                    const handArea = document.createElement('div');
+                    handArea.classList.add('player-hand-area');
+                    handArea.id = `player-hand-area-${index}`;
+                    if (index === currentHandIndex && playerTurn) {
+                        handArea.classList.add('active');
+                    }
+
+                    const handScore = getHandScore(hand);
+                    let title = playerHands.length > 1 ? `HAND ${index + 1}` : 'PLAYER';
+                    if (handScore > 21) title += ' (BUST)';
+
+                    handArea.innerHTML = `<h2>${title}: <span id="player-score-${index}">${handScore}</span></h2><div id="player-cards-${index}" class="cards"></div>`;
+                    playerAreaContainer.appendChild(handArea);
+
+                    const cardsContainer = document.getElementById(`player-cards-${index}`);
+                    hand.forEach(card => renderCard(card, cardsContainer));
+                });
+
+                // Update dealer score
+                if (dealerCardsEl.querySelector('.hidden')) {
+                    dealerScoreEl.textContent = getHandScore([dealerHand[0]]);
+                } else {
+                    dealerScoreEl.textContent = getHandScore(dealerHand);
+                }
+            }
+
+            function showMessage(text, color = 'var(--crt-text-color)') {
+                 messagesEl.innerHTML = '';
+                 const p = document.createElement('p');
+                 p.textContent = text;
+                 p.style.color = color;
+                 void messagesEl.offsetWidth; 
+                 messagesEl.appendChild(p);
+            }
+
+            function startRound() {
+                const bet = parseInt(betAmountInput.value);
+                if (isNaN(bet) || bet <= 0 || bet > playerBank) {
+                    showMessage("> INVALID BET AMOUNT.", 'var(--crt-error-color)');
+                    return;
+                }
+
+                playerBank -= bet;
+                updateBank();
+                
+                bettingControls.classList.add('hidden');
+                actionControls.classList.remove('hidden');
+                splitButton.classList.add('hidden');
+                hitButton.disabled = false;
+
+                createAndShuffleDeck();
+                playerHands = [[deck.pop(), deck.pop()]];
+                playerBets = [bet];
+                dealerHand = [deck.pop(), deck.pop()];
+                currentHandIndex = 0;
+
+                dealerCardsEl.innerHTML = '';
+                renderCard(dealerHand[0], dealerCardsEl);
+                renderCard(dealerHand[1], dealerCardsEl, true);
+                renderAllHands();
+                showMessage("> HAND IN PROGRESS...");
+
+                // Check for split possibility
+                const hand = playerHands[0];
+                if (hand.length === 2 && RANK_VALUES[hand[0].rank] === RANK_VALUES[hand[1].rank] && playerBank >= bet) {
+                    splitButton.classList.remove('hidden');
+                    splitButton.disabled = false;
+                }
+                doubleButton.disabled = false;
+
+                if (getHandScore(playerHands[0]) === 21) {
+                    setTimeout(endPlayerTurn, 500);
+                } else {
+                    playerTurn = true;
+                    updateActiveHandUI();
+                }
+            }
+            
+            function endPlayerTurn() {
+                playerTurn = false;
+                updateActiveHandUI(); // De-activates hand highlight
+                revealDealerCard();
+                
+                // Check for player Blackjack
+                if (playerHands.length === 1 && getHandScore(playerHands[0]) === 21 && playerHands[0].length === 2) {
+                    if (getHandScore(dealerHand) !== 21) {
+                        showMessage("> BLACKJACK! PLAYER WINS 3:2.", 'var(--crt-accent-color)');
+                        playerBank += playerBets[0] * 2.5;
+                    } else {
+                        showMessage("> PUSH. BOTH HAVE BLACKJACK.");
+                        playerBank += playerBets[0];
+                    }
+                    updateBank();
+                    resetControls();
+                    return;
+                }
+
+                // Dealer's turn logic
+                const dealerTurnInterval = setInterval(() => {
+                    if (getHandScore(dealerHand) < 17) {
+                        dealerHand.push(deck.pop());
+                        renderCard(dealerHand[dealerHand.length - 1], dealerCardsEl);
+                        dealerScoreEl.textContent = getHandScore(dealerHand);
+                    } else {
+                        clearInterval(dealerTurnInterval);
+                        determineWinner();
+                    }
+                }, 1000);
+            }
+            
+            function determineWinner() {
+                const dealerScore = getHandScore(dealerHand);
+                let finalMessage = "";
+                playerHands.forEach((hand, index) => {
+                    const playerScore = getHandScore(hand);
+                    const bet = playerBets[index];
+                    let handMsg = playerHands.length > 1 ? `HAND ${index + 1}: ` : "";
+                    
+                    if (playerScore > 21) {
+                        handMsg += "BUST. ";
+                    } else if (dealerScore > 21 || playerScore > dealerScore) {
+                        handMsg += "PLAYER WINS! ";
+                        playerBank += bet * 2;
+                    } else if (playerScore < dealerScore) {
+                        handMsg += "DEALER WINS. ";
+                    } else {
+                        handMsg += "PUSH. ";
+                        playerBank += bet;
+                    }
+                    finalMessage += handMsg;
+                });
+
+                showMessage(finalMessage.trim(), 'var(--crt-accent-color)');
+                updateBank();
+                resetControls();
+            }
+
+            function revealDealerCard() {
+                const hiddenCardEl = dealerCardsEl.querySelector('.hidden');
+                if (hiddenCardEl) {
+                    const card = { rank: hiddenCardEl.dataset.rank, suit: hiddenCardEl.dataset.suit };
+                    hiddenCardEl.classList.remove('hidden');
+                    if (['♥', '♦'].includes(card.suit)) hiddenCardEl.classList.add('red');
+                    hiddenCardEl.innerHTML = `<span class="rank-top">${card.rank}</span><span class="suit">${card.suit}</span><span class="rank-bottom">${card.rank}</span>`;
+                    dealerScoreEl.textContent = getHandScore(dealerHand);
+                }
+            }
+
+            function updateBank() {
+                playerBankEl.textContent = playerBank;
+                if (playerBank <= 0) {
+                    showMessage("> GAME OVER. BANKRUPT. SYSTEM REBOOTING...", 'var(--crt-error-color)');
+                    setTimeout(() => location.reload(), 4000);
+                }
+            }
+
+            function resetControls() {
+                bettingControls.classList.remove('hidden');
+                actionControls.classList.add('hidden');
+                playerTurn = false;
+            }
+
+            function updateActiveHandUI() {
+                document.querySelectorAll('.player-hand-area').forEach((el, i) => {
+                    if (i === currentHandIndex && playerTurn) {
+                        el.classList.add('active');
+                    } else {
+                        el.classList.remove('active');
+                    }
+                });
+            }
+
+            function playNextHand() {
+                currentHandIndex++;
+                if (currentHandIndex < playerHands.length) {
+                    // There is another hand to play
+                    showMessage(`> NOW PLAYING HAND ${currentHandIndex + 1}...`);
+                    doubleButton.disabled = false;
+                    updateActiveHandUI();
+                    // Auto-stand if split Aces
+                    if (playerHands[currentHandIndex][0].rank === 'A') {
+                         hitButton.disabled = true;
+                         doubleButton.disabled = true;
+                         setTimeout(playNextHand, 1000);
+                    } else {
+                         hitButton.disabled = false;
+                    }
+                } else {
+                    // All player hands are done
+                    endPlayerTurn();
+                }
+            }
+
+            // --- Event Listeners ---
+            betButton.addEventListener('click', startRound);
+
+            hitButton.addEventListener('click', () => {
+                if (!playerTurn) return;
+                doubleButton.disabled = true;
+                splitButton.disabled = true;
+
+                const hand = playerHands[currentHandIndex];
+                hand.push(deck.pop());
+                renderAllHands();
+
+                if (getHandScore(hand) >= 21) {
+                    playNextHand();
+                }
+            });
+
+            standButton.addEventListener('click', () => {
+                if (!playerTurn) return;
+                playNextHand();
+            });
+
+            doubleButton.addEventListener('click', () => {
+                if (!playerTurn) return;
+                const bet = playerBets[currentHandIndex];
+                if (playerBank < bet) {
+                    showMessage("> INSUFFICIENT FUNDS TO DOUBLE DOWN.", 'var(--crt-error-color)');
+                    return;
+                }
+
+                playerBank -= bet;
+                playerBets[currentHandIndex] *= 2;
+                updateBank();
+                
+                const hand = playerHands[currentHandIndex];
+                hand.push(deck.pop());
+                renderAllHands();
+                
+                playNextHand();
+            });
+
+            splitButton.addEventListener('click', () => {
+                if (!playerTurn) return;
+                const bet = playerBets[0];
+                if (playerBank < bet) {
+                    showMessage("> INSUFFICIENT FUNDS TO SPLIT.", 'var(--crt-error-color)');
+                    return;
+                }
+                playerBank -= bet;
+                updateBank();
+
+                const handToSplit = playerHands[0];
+                playerHands = [[handToSplit[0]], [handToSplit[1]]];
+                playerBets = [bet, bet];
+                
+                playerHands[0].push(deck.pop());
+                playerHands[1].push(deck.pop());
+                
+                splitButton.classList.add('hidden');
+                doubleButton.disabled = false;
+                renderAllHands();
+                updateActiveHandUI();
+
+                if (playerHands[0][0].rank === 'A') {
+                    hitButton.disabled = true;
+                    doubleButton.disabled = true;
+                    setTimeout(playNextHand, 1000);
+                } else {
+                    hitButton.disabled = false;
+                }
+            });
+
+            tipsToggleButton.addEventListener('click', () => tipsPanel.classList.add('open'));
+            closeTipsButton.addEventListener('click', () => tipsPanel.classList.remove('open'));
+            hamburgerMenu.addEventListener('click', () => navMenu.classList.toggle('open'));
+
+            betAmountInput.addEventListener('input', () => {
+                if (parseInt(betAmountInput.value) > playerBank) betAmountInput.value = playerBank;
+            });
+
+            updateBank();
+        });
+    </script>
+</body>
+</html>
