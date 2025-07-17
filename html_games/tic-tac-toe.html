@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic-Tac-Toe | War Games Edition</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        /* Using the color palette provided by the user */
+        :root {
+            --crt-bg-color: #1a1a1a;
+            --crt-text-color: #00ff00; /* Neon Green */
+            --crt-accent-color: #ffbf00; /* Amber */
+            --crt-border-color: #008000; /* Darker Green */
+            --crt-shadow-color: #00ff00b3;
+            --crt-error-color: #ff0000;
+            --crt-highlight-color: #00ff0025; /* Lighter for hover */
+            --crt-winner-highlight: #00ff004d;
+        }
+
+        /* Base styles and CRT container */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevents scrollbars from the vignette effect */
+        }
+
+        body {
+            background-color: var(--crt-bg-color);
+            color: var(--crt-text-color);
+            font-family: 'VT323', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        /* CRT screen effect container */
+        .crt-screen {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+
+        /* Scanlines overlay */
+        .crt-screen::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none; /* Allows clicks to pass through */
+        }
+        
+        /* Vignette effect */
+        .crt-screen::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.75) 100%);
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        /* Main content container */
+        .content {
+            position: relative;
+            z-index: 1;
+            animation: text-flicker 0.015s infinite;
+        }
+
+        /* Text shadow for glow effect */
+        h1, .status, .cell, .button {
+            text-shadow: 0 0 5px var(--crt-shadow-color), 0 0 10px var(--crt-shadow-color);
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            color: var(--crt-accent-color);
+        }
+
+        .status {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            height: 25px; /* Reserve space to prevent layout shift */
+        }
+
+        /* Game board styling */
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 10px;
+            margin: 0 auto;
+        }
+
+        .cell {
+            width: 100px;
+            height: 100px;
+            border: 2px solid var(--crt-border-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 5rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            user-select: none; /* Prevents text selection on click */
+        }
+
+        .cell:hover {
+            background-color: var(--crt-highlight-color);
+        }
+        
+        .cell.X {
+             color: var(--crt-text-color);
+        }
+
+        .cell.O {
+            color: var(--crt-accent-color);
+        }
+
+        /* Highlight winning cells */
+        .cell.win {
+            background-color: var(--crt-winner-highlight);
+        }
+
+        /* Generic button styling */
+        .button {
+            margin: 0;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            color: var(--crt-text-color);
+            background-color: transparent;
+            border: 2px solid var(--crt-border-color);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            font-family: 'VT323', monospace;
+        }
+
+        .button:hover {
+            background-color: var(--crt-border-color);
+            color: var(--crt-bg-color);
+            text-shadow: none;
+        }
+
+        .mode-selection .button {
+            margin: 0 10px;
+        }
+        
+        /* Container for in-game buttons */
+        .game-controls {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        /* Utility class to hide elements */
+        .hidden {
+            display: none;
+        }
+
+        /* CRT flicker animation */
+        @keyframes text-flicker {
+            0% { opacity: 0.95; }
+            5% { opacity: 0.85; }
+            10% { opacity: 0.98; }
+            15% { opacity: 0.9; }
+            20% { opacity: 1; }
+            25% { opacity: 0.92; }
+            30% { opacity: 0.88; }
+            35% { opacity: 0.97; }
+            40% { opacity: 1; }
+            100% { opacity: 1; }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 400px) {
+            .game-board {
+                grid-template-columns: repeat(3, 80px);
+                grid-template-rows: repeat(3, 80px);
+            }
+            .cell {
+                width: 80px;
+                height: 80px;
+                font-size: 4rem;
+            }
+            h1 {
+                font-size: 2.5rem;
+            }
+            .status {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="top-bar">
+        <div class="nav-left"></div>
+        <h1 class="site-title">Master Seth's Command Console</h1>
+        <nav class="nav-menu">
+            <a href="dashboard.html">🏠 Dashboard</a>
+            <a href="radar.html">🌩️ Radar</a>
+            <a href="sudoku.html" class="active">🧩 Sudoku</a>
+        </nav>
+    </header>
+    <div class="crt-screen">
+        <div class="content">
+            <h1>Tic-Tac-Toe</h1>
+            
+            <div class="mode-selection">
+                <h2>Select Mode:</h2>
+                <button class="button" id="pvpButton">Player vs Player</button>
+                <button class="button" id="pvcButton">Player vs Computer</button>
+            </div>
+
+            <div class="game-container hidden">
+                <div class="status">Player X's turn</div>
+                <div class="game-board">
+                    <div class="cell" data-cell-index="0"></div>
+                    <div class="cell" data-cell-index="1"></div>
+                    <div class="cell" data-cell-index="2"></div>
+                    <div class="cell" data-cell-index="3"></div>
+                    <div class="cell" data-cell-index="4"></div>
+                    <div class="cell" data-cell-index="5"></div>
+                    <div class="cell" data-cell-index="6"></div>
+                    <div class="cell" data-cell-index="7"></div>
+                    <div class="cell" data-cell-index="8"></div>
+                </div>
+                <div class="game-controls">
+                    <button class="button" id="resetButton">Reset</button>
+                    <button class="button" id="changeModeButton">Change Mode</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Element References ---
+            const statusDisplay = document.querySelector('.status');
+            const cells = document.querySelectorAll('.cell');
+            const modeSelection = document.querySelector('.mode-selection');
+            const pvpButton = document.querySelector('#pvpButton');
+            const pvcButton = document.querySelector('#pvcButton');
+            const gameContainer = document.querySelector('.game-container');
+            const gameBoard = document.querySelector('.game-board');
+            const resetButton = document.querySelector('#resetButton');
+            const changeModeButton = document.querySelector('#changeModeButton');
+
+            // --- Game State Variables ---
+            let gameActive = false;
+            let currentPlayer = 'X';
+            let gameState = ["", "", "", "", "", "", "", "", ""];
+            let gameMode = ''; // 'pvp' or 'pvc'
+            const playerSymbol = 'X';
+            const aiSymbol = 'O';
+
+            // --- Game Constants ---
+            const winningConditions = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+                [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+                [0, 4, 8], [2, 4, 6]             // Diagonals
+            ];
+
+            const winningMessage = () => `PLAYER ${currentPlayer} WINS!`;
+            const drawMessage = () => `SYSTEM STALEMATE // DRAW`;
+            const currentPlayerTurn = () => `Player ${currentPlayer}'s turn`;
+
+            // --- Functions ---
+
+            function startGame(mode) {
+                gameMode = mode;
+                gameActive = true;
+                modeSelection.classList.add('hidden');
+                gameContainer.classList.remove('hidden');
+                resetBoard();
+            }
+
+            function resetBoard() {
+                gameActive = true;
+                currentPlayer = "X";
+                gameState = ["", "", "", "", "", "", "", "", ""];
+                statusDisplay.innerHTML = currentPlayerTurn();
+                statusDisplay.style.color = 'var(--crt-text-color)';
+                cells.forEach(cell => {
+                    cell.innerHTML = "";
+                    cell.classList.remove('X', 'O', 'win');
+                });
+                 // If it's PVC and computer starts, it needs to make a move.
+                if (gameMode === 'pvc' && currentPlayer === aiSymbol) {
+                    computerMove();
+                }
+            }
+            
+            function handleCellPlayed(clickedCell, clickedCellIndex) {
+                gameState[clickedCellIndex] = currentPlayer;
+                clickedCell.innerHTML = currentPlayer;
+                clickedCell.classList.add(currentPlayer);
+            }
+
+            function handlePlayerChange() {
+                currentPlayer = currentPlayer === playerSymbol ? aiSymbol : playerSymbol;
+                statusDisplay.innerHTML = currentPlayerTurn();
+            }
+
+            function handleResultValidation() {
+                let roundWon = false;
+                let winningCombo = [];
+
+                for (let i = 0; i < winningConditions.length; i++) {
+                    const winCondition = winningConditions[i];
+                    const a = gameState[winCondition[0]];
+                    const b = gameState[winCondition[1]];
+                    const c = gameState[winCondition[2]];
+
+                    if (a === '' || b === '' || c === '') continue;
+                    if (a === b && b === c) {
+                        roundWon = true;
+                        winningCombo = winCondition;
+                        break;
+                    }
+                }
+
+                if (roundWon) {
+                    statusDisplay.innerHTML = winningMessage();
+                    statusDisplay.style.color = 'var(--crt-error-color)';
+                    gameActive = false;
+                    winningCombo.forEach(index => cells[index].classList.add('win'));
+                    return;
+                }
+
+                const roundDraw = !gameState.includes("");
+                if (roundDraw) {
+                    statusDisplay.innerHTML = drawMessage();
+                    gameActive = false;
+                    return;
+                }
+                
+                handlePlayerChange();
+
+                if (gameMode === 'pvc' && currentPlayer === aiSymbol && gameActive) {
+                    computerMove();
+                }
+            }
+
+            function handleCellClick(event) {
+                const clickedCell = event.target;
+                const clickedCellIndex = parseInt(clickedCell.getAttribute('data-cell-index'));
+
+                if (gameState[clickedCellIndex] !== "" || !gameActive || (gameMode === 'pvc' && currentPlayer === aiSymbol)) {
+                    return;
+                }
+
+                handleCellPlayed(clickedCell, clickedCellIndex);
+                handleResultValidation();
+            }
+
+            function handleReturnToMenu() {
+                gameActive = false;
+                gameContainer.classList.add('hidden');
+                modeSelection.classList.remove('hidden');
+            }
+
+            // --- AI Logic (Minimax) ---
+
+            function computerMove() {
+                gameBoard.style.pointerEvents = 'none';
+                setTimeout(() => {
+                    const bestMove = findBestMove(gameState);
+                    const cellToPlay = document.querySelector(`.cell[data-cell-index='${bestMove.index}']`);
+                    
+                    if(cellToPlay && gameActive) {
+                        handleCellPlayed(cellToPlay, bestMove.index);
+                        handleResultValidation();
+                    }
+                    gameBoard.style.pointerEvents = 'auto';
+                }, 800);
+            }
+
+            function findBestMove(board) {
+                let bestScore = -Infinity;
+                let move = {};
+
+                for (let i = 0; i < 9; i++) {
+                    if (board[i] === '') {
+                        board[i] = aiSymbol;
+                        let score = minimax(board, 0, false);
+                        board[i] = ''; // backtrack
+                        if (score > bestScore) {
+                            bestScore = score;
+                            move.index = i;
+                        }
+                    }
+                }
+                return move;
+            }
+
+            function minimax(board, depth, isMaximizing) {
+                let score = evaluate(board);
+
+                if (score === 10) return score - depth;
+                if (score === -10) return score + depth;
+                if (!board.includes('')) return 0;
+
+                if (isMaximizing) {
+                    let best = -Infinity;
+                    for (let i = 0; i < 9; i++) {
+                        if (board[i] === '') {
+                            board[i] = aiSymbol;
+                            best = Math.max(best, minimax(board, depth + 1, !isMaximizing));
+                            board[i] = '';
+                        }
+                    }
+                    return best;
+                } else {
+                    let best = Infinity;
+                    for (let i = 0; i < 9; i++) {
+                        if (board[i] === '') {
+                            board[i] = playerSymbol;
+                            best = Math.min(best, minimax(board, depth + 1, !isMaximizing));
+                            board[i] = '';
+                        }
+                    }
+                    return best;
+                }
+            }
+
+            function evaluate(b) {
+                for (const condition of winningConditions) {
+                    const [x, y, z] = condition;
+                    if (b[x] && b[x] === b[y] && b[x] === b[z]) {
+                        if (b[x] === aiSymbol) return 10;
+                        else if (b[x] === playerSymbol) return -10;
+                    }
+                }
+                return 0;
+            }
+
+
+            // --- Event Listeners ---
+            cells.forEach(cell => cell.addEventListener('click', handleCellClick));
+            resetButton.addEventListener('click', resetBoard);
+            changeModeButton.addEventListener('click', handleReturnToMenu);
+            pvpButton.addEventListener('click', () => startGame('pvp'));
+            pvcButton.addEventListener('click', () => startGame('pvc'));
+        });
+    </script>
+</body>
+</html>
