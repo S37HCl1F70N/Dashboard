@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>S.N.A.K.E. - A W.O.P.R. Simulation v4.0</title>
+    <title>S.N.A.K.E. - A W.O.P.R. Simulation v4.1</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
@@ -348,6 +348,7 @@
             <div id="pause-screen" class="overlay hidden" role="dialog" aria-labelledby="pause-title" aria-modal="true">
                 <h2 id="pause-title">>> SIMULATION PAUSED</h2>
                 <button type="button" id="resume-button" class="crt-button">RESUME</button>
+                <button type="button" id="quit-button" class="crt-button">QUIT TO MENU</button>
             </div>
 
             <!-- ARIA Live Region for screen reader announcements -->
@@ -360,7 +361,7 @@
 
             // --- Configuration Object ---
             const CONFIG = {
-                GRID_CELLS: 50,
+                GRID_CELLS: 30,
                 DIFFICULTY: {
                     easy: { speed: 150, decay: 0.99 },
                     normal: { speed: 120, decay: 0.97 },
@@ -378,6 +379,7 @@
             const pauseScreen = document.getElementById('pause-screen');
             const startButton = document.getElementById('start-button');
             const resumeButton = document.getElementById('resume-button');
+            const quitButton = document.getElementById('quit-button'); // New button reference
             const difficultyButtons = document.querySelectorAll('.difficulty-btn');
             const highScoreList = document.getElementById('high-score-list');
             const canvas = document.getElementById('game-canvas');
@@ -424,14 +426,12 @@
 
             /**
              * Initializes the Web Audio API context and creates sound generators.
-             * This is called on the first user interaction to comply with browser policies.
              * @function initAudio
              */
             function initAudio() {
                 if (audioCtx) return;
                 try {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    // Sound for eating food
                     SOUNDS.eat = () => {
                         const oscillator = audioCtx.createOscillator();
                         const gainNode = audioCtx.createGain();
@@ -444,7 +444,6 @@
                         oscillator.start();
                         oscillator.stop(audioCtx.currentTime + 0.1);
                     };
-                    // Sound for game over
                     SOUNDS.gameOver = () => {
                         const oscillator = audioCtx.createOscillator();
                         const gainNode = audioCtx.createGain();
@@ -465,14 +464,11 @@
 
             // --- Screen & UI Management ---
 
-            /**
-             * Manages which primary screen is visible to the user.
-             * @param {string} screenName - 'menu' or 'game'.
-             */
             function showScreen(screenName) {
                 mainMenuScreen.classList.add('hidden');
                 gameScreen.classList.add('hidden');
                 gameOverScreen.classList.add('hidden');
+                pauseScreen.classList.add('hidden'); // Ensure pause screen is also hidden
 
                 if (screenName === 'menu') {
                     mainMenuScreen.classList.remove('hidden');
@@ -482,9 +478,6 @@
                 }
             }
             
-            /**
-             * Loads, validates, and displays high scores from localStorage.
-             */
             function displayHighScores() {
                 try {
                     const storedScores = localStorage.getItem(CONFIG.HIGH_SCORE_KEY);
@@ -509,9 +502,6 @@
 
             // --- Game Initialization & State ---
 
-            /**
-             * Sets up and starts a new game session.
-             */
             function startGame() {
                 showScreen('game');
                 gameRunning = true;
@@ -537,14 +527,10 @@
 
                 generateFood();
                 window.cancelAnimationFrame(gameLoopId);
-                lastRenderTime = 0; // Reset render time for the new loop
+                lastRenderTime = 0;
                 gameLoopId = window.requestAnimationFrame(main);
             }
 
-            /**
-             * The main game loop, driven by requestAnimationFrame.
-             * @param {DOMHighResTimeStamp} currentTime - The current time provided by the browser.
-             */
             function main(currentTime) {
                 if (!gameRunning) {
                     handleGameOver();
@@ -569,15 +555,11 @@
                 }
             }
             
-            /**
-             * Toggles the paused state of the game.
-             */
             function togglePause() {
                 if (!gameRunning) return;
                 isPaused = !isPaused;
                 pauseScreen.classList.toggle('hidden', !isPaused);
                 if (!isPaused) {
-                    // When unpausing, reset lastRenderTime to avoid a large jump
                     lastRenderTime = performance.now(); 
                     gameLoopId = window.requestAnimationFrame(main);
                 } else {
@@ -585,19 +567,23 @@
                 }
             }
 
+            /**
+             * Quits the current game and returns to the main menu.
+             */
+            function quitGame() {
+                gameRunning = false;
+                isPaused = false;
+                window.cancelAnimationFrame(gameLoopId);
+                showScreen('menu');
+            }
+
             // --- Game Logic Update Functions ---
 
-            /**
-             * Processes inputs and updates the snake's state for one game tick.
-             */
             function update() {
                 processInput();
                 updateSnake();
             }
 
-            /**
-             * Draws all game elements onto the canvas.
-             */
             function draw() {
                 clearCanvas();
                 drawFood();
@@ -718,16 +704,12 @@
 
             // --- Event Handling ---
 
-            /**
-             * Processes one input from the queue and updates the snake's direction.
-             */
             function processInput() {
                 if (inputQueue.length === 0) return;
                 
                 const nextDirection = inputQueue.shift();
                 const { newDx, newDy } = nextDirection;
                 
-                // Prevent 180-degree turns
                 const isReversing = (dx === -newDx && dx !== 0) || (dy === -newDy && dy !== 0);
                 if (!isReversing) {
                     dx = newDx;
@@ -735,10 +717,6 @@
                 }
             }
             
-            /**
-             * Maps keyboard keys to direction vectors and adds them to the input queue.
-             * @param {KeyboardEvent} event - The keyboard event object.
-             */
             function handleKeyInput(event) {
                 if (event.key === 'p' || event.key === 'Escape') {
                     togglePause();
@@ -755,14 +733,11 @@
                 }
 
                 if (direction) {
-                    event.preventDefault(); // Prevent scrolling with arrow keys
+                    event.preventDefault();
                     inputQueue.push(direction);
                 }
             }
 
-            /**
-             * Maps touch gestures to direction vectors and adds them to the input queue.
-             */
             function handleGesture() {
                 const deltaX = touchEndX - touchStartX, deltaY = touchEndY - touchStartY;
                 let direction = null;
@@ -777,9 +752,6 @@
                 inputQueue.push(direction);
             }
             
-            /**
-             * Sets the canvas size based on the window size.
-             */
             let resizeTimeout;
             function handleResize() {
                 clearTimeout(resizeTimeout);
@@ -800,9 +772,6 @@
 
             // --- Initial Setup ---
 
-            /**
-             * The main initialization function for the entire application.
-             */
             function init() {
                 cacheColors();
                 handleResize();
@@ -810,12 +779,13 @@
 
                 // --- Event Listeners ---
                 startButton.addEventListener("click", () => {
-                    initAudio(); // Initialize audio on first user interaction
+                    initAudio();
                     startGame();
                 });
                 submitScoreButton.addEventListener("click", saveHighScore);
                 returnToMenuButton.addEventListener("click", () => showScreen('menu'));
                 resumeButton.addEventListener("click", togglePause);
+                quitButton.addEventListener("click", quitGame); // New listener
 
                 difficultyButtons.forEach(button => {
                     button.addEventListener('click', (e) => {
