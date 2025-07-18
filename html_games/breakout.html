@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Cyber Breakout - Deluxe Edition</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom CSS for the game's aesthetic */
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevent scrolling on mobile */
+        }
+        
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background-color: #0a0a1a;
+            color: #00ffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        #gameContainer {
+            background: rgba(10, 10, 30, 0.8);
+            border: 2px solid #00ffff;
+            border-radius: 15px;
+            box-shadow: 0 0 30px #00ffff, inset 0 0 20px rgba(0, 255, 255, 0.3);
+            padding: 10px;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            position: relative;
+            width: 95vw; /* Responsive width */
+            max-width: 840px; /* Max width on desktop */
+            height: auto;
+        }
+        
+        canvas {
+            background-color: #000;
+            border-radius: 10px;
+            border: 1px solid #00aaff;
+            box-shadow: 0 0 15px #00aaff;
+            cursor: none;
+            display: block;
+            width: 100%; /* Make canvas responsive */
+            height: auto;
+        }
+
+        .ui-element {
+            text-shadow: 0 0 5px #00ffff, 0 0 10px #00ffff;
+        }
+
+        .modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 20, 0.95);
+            border-radius: 13px; /* Match container */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 1rem;
+            text-shadow: 0 0 5px #00ffff;
+            z-index: 100;
+        }
+
+        .button {
+            background-color: transparent;
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 5px #00ffff;
+            padding: 0.5rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            margin: 0.5rem;
+        }
+
+        .button:hover, .button.active {
+            background-color: #00ffff;
+            color: #0a0a1a;
+            box-shadow: 0 0 20px #00ffff;
+        }
+        
+        #highScoreList {
+            list-style: none;
+            padding: 0;
+            width: 90%;
+            text-align: left;
+        }
+        #highScoreList li {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.25rem 1rem;
+            margin: 0.25rem 0;
+            background: rgba(0, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+
+        /* Responsive typography and layout adjustments */
+        @media (max-width: 600px) {
+            #gameContainer { padding: 5px; }
+            .modal h2 { font-size: 2.5rem; }
+            .modal p { font-size: 1rem; }
+            .button { font-size: 1rem; padding: 0.5rem 1rem; }
+            #gameUI h1 { font-size: 1.5rem; }
+            #gameUI .flex > div { font-size: 0.8rem; }
+        }
+
+        /* Background animated grid */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(to right, rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+            animation: background-pan 10s linear infinite;
+            z-index: -1;
+        }
+
+        @keyframes background-pan {
+            from { background-position: 0 0; }
+            to { background-position: -40px -40px; }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 flex items-center justify-center h-screen">
+
+    <div id="gameContainer" class="text-center rounded-lg">
+        <div id="gameUI" class="hidden">
+            <h1 class="text-4xl font-bold mb-2 ui-element">CYBER BREAKOUT</h1>
+            <div class="flex justify-between items-center mb-2 px-2 text-lg">
+                <div class="ui-element">Score: <span id="score">0</span></div>
+                <div class="ui-element">Level: <span id="level">1</span></div>
+                <div class="ui-element">Lives: <span id="lives">3</span></div>
+            </div>
+        </div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <!-- Main Menu -->
+        <div id="mainMenu" class="modal">
+            <h2 class="text-6xl font-bold mb-8">CYBER BREAKOUT</h2>
+            <button id="newGameBtn" class="button text-2xl">New Game</button>
+            <button id="optionsBtn" class="button text-2xl">Options</button>
+            <button id="highScoresBtn" class="button text-2xl">High Scores</button>
+        </div>
+        
+        <!-- Options Menu -->
+        <div id="optionsMenu" class="modal hidden">
+            <h2 class="text-5xl font-bold mb-6">Options</h2>
+            <div class="mb-4">
+                <h3 class="text-2xl mb-2">Board Density</h3>
+                <button data-density="normal" class="button density-btn active">Normal</button>
+                <button data-density="dense" class="button density-btn">Dense</button>
+            </div>
+            <button id="backToMenuBtn" class="button text-xl mt-8">Back to Menu</button>
+        </div>
+
+        <!-- High Scores Menu -->
+        <div id="highScoresMenu" class="modal hidden">
+            <h2 class="text-5xl font-bold mb-6">High Scores</h2>
+            <ol id="highScoreList" class="text-lg"></ol>
+            <button id="backToMenuFromScoresBtn" class="button text-xl mt-8">Back to Menu</button>
+        </div>
+
+        <!-- In-Game Modal -->
+        <div id="inGameModal" class="modal hidden">
+            <h2 id="modal-title" class="text-5xl font-bold mb-4"></h2>
+            <p id="modal-text" class="text-xl mb-6"></p>
+            <div id="nameInputContainer" class="hidden">
+                <input type="text" id="playerNameInput" placeholder="ENTER YOUR NAME" maxlength="10" class="bg-transparent border-2 border-cyan-400 text-center p-2 rounded text-2xl uppercase">
+            </div>
+            <button id="modal-button" class="button text-2xl"></button>
+        </div>
+    </div>
+
+    <script>
+    window.onload = function() {
+        // --- DOM Elements ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameUI = document.getElementById('gameUI');
+        const scoreEl = document.getElementById('score');
+        const livesEl = document.getElementById('lives');
+        const levelEl = document.getElementById('level');
+        
+        // Menus & Modals
+        const mainMenu = document.getElementById('mainMenu');
+        const optionsMenu = document.getElementById('optionsMenu');
+        const highScoresMenu = document.getElementById('highScoresMenu');
+        const inGameModal = document.getElementById('inGameModal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalText = document.getElementById('modal-text');
+        const modalButton = document.getElementById('modal-button');
+        const nameInputContainer = document.getElementById('nameInputContainer');
+        const playerNameInput = document.getElementById('playerNameInput');
+
+        // Buttons
+        const newGameBtn = document.getElementById('newGameBtn');
+        const optionsBtn = document.getElementById('optionsBtn');
+        const highScoresBtn = document.getElementById('highScoresBtn');
+        const backToMenuBtn = document.getElementById('backToMenuBtn');
+        const backToMenuFromScoresBtn = document.getElementById('backToMenuFromScoresBtn');
+        const densityButtons = document.querySelectorAll('.density-btn');
+        const highScoreList = document.getElementById('highScoreList');
+
+        // --- Game State & Settings ---
+        let gameState = 'menu'; // 'menu', 'playing', 'paused', 'levelup', 'gameover'
+        let gameSettings = {
+            boardDensity: 'normal' // 'normal' or 'dense'
+        };
+        let score, lives, level, bricks, particles, powerUps, ballOnPaddle;
+        const keys = { right: false, left: false };
+
+        // --- Game Objects ---
+        const paddle = { width: 0, height: 0, x: 0, y: 0, speed: 10, dx: 0, color: '#00ffff', shadowColor: '#00ffff', originalWidth: 0 };
+        const ball = { radius: 0, x: 0, y: 0, speed: 5, dx: 4, dy: -4, color: '#ff00ff', shadowColor: '#ff00ff', originalSpeed: 5 };
+        const brickInfo = { width: 0, height: 0, padding: 0, offsetTop: 50, offsetLeft: 30, colors: ['#ff007f', '#00ff7f', '#ffff00', '#7f00ff', '#007fff'], rowCount: 0 };
+        
+        const powerUpTypes = {
+            'widePaddle': { color: '#00ff00', symbol: 'W', duration: 10000 },
+            'extraLife': { color: '#ffff00', symbol: '+', duration: 0 },
+            'slowBall': { color: '#007fff', symbol: 'S', duration: 10000 },
+            'fastBall': { color: '#ff007f', symbol: 'F', duration: 10000 }
+        };
+
+        // --- Audio ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (!audioCtx || audioCtx.state === 'suspended') { audioCtx.resume(); }
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            switch (type) {
+                case 'bounce': osc.type = 'triangle'; osc.frequency.setValueAtTime(440, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.2); break;
+                case 'brick': osc.type = 'square'; osc.frequency.setValueAtTime(880, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.1); break;
+                case 'powerup': osc.type = 'sine'; osc.frequency.setValueAtTime(660, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.3); break;
+                case 'loseLife': osc.type = 'sawtooth'; osc.frequency.setValueAtTime(220, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(110, audioCtx.currentTime + 0.5); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5); break;
+            }
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+        
+        // --- Sizing Logic ---
+        function updateElementSizes(density) {
+            if (density === 'dense') {
+                brickInfo.width = 50; brickInfo.height = 15; brickInfo.padding = 8; brickInfo.rowCount = 10;
+                paddle.originalWidth = 90; paddle.height = 15; ball.radius = 8;
+            } else { // 'normal'
+                brickInfo.width = 75; brickInfo.height = 20; brickInfo.padding = 10; brickInfo.rowCount = 5;
+                paddle.originalWidth = 120; paddle.height = 20; ball.radius = 10;
+            }
+        }
+
+        // --- Drawing Functions ---
+        function drawPaddle() { ctx.beginPath(); ctx.rect(paddle.x, paddle.y, paddle.width, paddle.height); ctx.fillStyle = paddle.color; ctx.shadowColor = paddle.shadowColor; ctx.shadowBlur = 20; ctx.fill(); ctx.closePath(); ctx.shadowBlur = 0; }
+        function drawBall() { ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2); ctx.fillStyle = ball.color; ctx.shadowColor = ball.shadowColor; ctx.shadowBlur = 25; ctx.fill(); ctx.closePath(); ctx.shadowBlur = 0; }
+        function drawBricks() { bricks.forEach(b => { if (b.status === 1) { ctx.beginPath(); ctx.rect(b.x, b.y, brickInfo.width, brickInfo.height); ctx.fillStyle = b.color; ctx.shadowColor = b.color; ctx.shadowBlur = 10; ctx.fill(); ctx.closePath(); } }); ctx.shadowBlur = 0; }
+        function drawParticles() { for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.globalAlpha = p.alpha; ctx.fill(); ctx.closePath(); p.x += p.vx; p.y += p.vy; p.alpha -= 0.02; if (p.alpha <= 0) particles.splice(i, 1); } ctx.globalAlpha = 1.0; }
+        function drawPowerUps() { powerUps.forEach(p => { const size = ball.radius * 2; ctx.beginPath(); ctx.rect(p.x, p.y, size, size); ctx.fillStyle = p.type.color; ctx.shadowColor = p.type.color; ctx.shadowBlur = 15; ctx.fill(); ctx.fillStyle = '#000'; ctx.font = `bold ${size * 0.8}px Orbitron`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(p.type.symbol, p.x + size/2, p.y + size/2 + 1); ctx.closePath(); }); ctx.shadowBlur = 0; }
+
+        // --- Movement & Collision ---
+        function movePaddle() { paddle.x += paddle.dx; if (paddle.x < 0) paddle.x = 0; if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width; }
+        function moveBall() { if (ballOnPaddle) { ball.x = paddle.x + paddle.width / 2; ball.y = paddle.y - ball.radius; return; } ball.x += ball.dx; ball.y += ball.dy; if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) { ball.dx *= -1; playSound('bounce'); } if (ball.y - ball.radius < 0) { ball.dy *= -1; playSound('bounce'); } if (ball.y + ball.radius > canvas.height) { lives--; playSound('loseLife'); if (lives <= 0) { gameState = 'gameover'; } else { resetBallAndPaddle(); updateUI(); } } if (ball.y + ball.radius > paddle.y && ball.x > paddle.x && ball.x < paddle.x + paddle.width) { let collidePoint = (ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2); let angle = collidePoint * (Math.PI / 3); ball.dx = ball.speed * Math.sin(angle); ball.dy = -ball.speed * Math.cos(angle); playSound('bounce'); } }
+        function updatePowerUps() { for (let i = powerUps.length - 1; i >= 0; i--) { const p = powerUps[i]; const size = ball.radius * 2; p.y += p.dy; if (p.y > canvas.height) { powerUps.splice(i, 1); continue; } if (p.y + size > paddle.y && p.x > paddle.x && p.x + size < paddle.x + paddle.width) { activatePowerUp(p); powerUps.splice(i, 1); } } }
+        function brickCollision() { for (const b of bricks) { if (b.status === 1) { if (ball.x > b.x && ball.x < b.x + brickInfo.width && ball.y > b.y && ball.y < b.y + brickInfo.height) { ball.dy *= -1; b.status = 0; createParticles(b.x, b.y, b.color); playSound('brick'); score += 10; if (Math.random() < 0.2) spawnPowerUp(b.x, b.y); updateUI(); checkWinCondition(); break; } } } }
+
+        // --- Game Logic ---
+        function setupNewGame() { updateElementSizes(gameSettings.boardDensity); score = 0; lives = 3; level = 1; ball.speed = ball.originalSpeed; paddle.width = paddle.originalWidth; powerUps = []; particles = []; createBricks(); resetBallAndPaddle(); updateUI(); }
+        function createBricks() { bricks = []; const brickRowCount = brickInfo.rowCount + level -1; const brickColumnCount = Math.floor((canvas.width - 2 * brickInfo.offsetLeft) / (brickInfo.width + brickInfo.padding)); for (let c = 0; c < brickColumnCount; c++) { for (let r = 0; r < brickRowCount; r++) { const brickX = c * (brickInfo.width + brickInfo.padding) + brickInfo.offsetLeft; const brickY = r * (brickInfo.height + brickInfo.padding) + brickInfo.offsetTop; const colorIndex = (r + c + level) % brickInfo.colors.length; bricks.push({ x: brickX, y: brickY, status: 1, color: brickInfo.colors[colorIndex] }); } } }
+        function resetBallAndPaddle() { ballOnPaddle = true; paddle.x = canvas.width / 2 - paddle.width / 2; paddle.y = canvas.height - (paddle.height + 20); ball.x = canvas.width / 2; ball.y = paddle.y - ball.radius; ball.dx = 4; ball.dy = -4; }
+        function createParticles(x, y, color) { for (let i = 0; i < 15; i++) particles.push({ x: x + brickInfo.width / 2, y: y + brickInfo.height / 2, size: Math.random() * 3 + 1, color: color, alpha: 1, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4 }); }
+        function spawnPowerUp(x, y) { const typeKeys = Object.keys(powerUpTypes); const randomTypeKey = typeKeys[Math.floor(Math.random() * typeKeys.length)]; powerUps.push({ x: x + brickInfo.width / 2 - ball.radius, y: y, dy: 2, type: { ...powerUpTypes[randomTypeKey], key: randomTypeKey } }); }
+        function activatePowerUp(p) { playSound('powerup'); switch (p.type.key) { case 'widePaddle': paddle.width = paddle.originalWidth * 1.5; setTimeout(() => paddle.width = paddle.originalWidth, p.type.duration); break; case 'extraLife': lives++; updateUI(); break; case 'slowBall': ball.speed = ball.originalSpeed * 0.7; setTimeout(() => ball.speed = ball.originalSpeed, p.type.duration); break; case 'fastBall': ball.speed = ball.originalSpeed * 1.4; setTimeout(() => ball.speed = ball.originalSpeed, p.type.duration); break; } }
+        function checkWinCondition() { if (bricks.every(b => b.status === 0)) { gameState = 'levelup'; } }
+        function updateUI() { scoreEl.textContent = score; livesEl.textContent = lives; levelEl.textContent = level; }
+        
+        // --- High Score Logic ---
+        function getHighScores() { try { const scores = JSON.parse(localStorage.getItem('cyberBreakoutHighScores')) || []; return scores.sort((a, b) => b.score - a.score).slice(0, 10); } catch (e) { console.error("Could not access high scores.", e); return []; } }
+        function saveHighScore(score, name) { try { const scores = getHighScores(); scores.push({ score, name }); localStorage.setItem('cyberBreakoutHighScores', JSON.stringify(scores)); } catch (e) { console.error("Could not save high score.", e); } }
+        function displayHighScores() { highScoreList.innerHTML = getHighScores().map(s => `<li><span>${s.name}</span><span>${s.score}</span></li>`).join(''); }
+        function checkAndSubmitHighScore() { const highScores = getHighScores(); if (score > 0 && (highScores.length < 10 || score > highScores[highScores.length - 1].score)) { showInGameModal("High Score!", `Your score of ${score} made the board!`, "Submit", true, () => { const name = playerNameInput.value.trim().toUpperCase() || 'CYBER'; saveHighScore(score, name); changeState('menu'); }); } else { showInGameModal("Game Over", `Your Score: ${score}`, "Main Menu", false, () => changeState('menu')); } }
+        
+        // --- UI & State Changers ---
+        function showInGameModal(title, text, buttonText, showNameInput = false, callback) { inGameModal.classList.remove('hidden'); modalTitle.textContent = title; modalText.textContent = text; modalButton.textContent = buttonText; nameInputContainer.style.display = showNameInput ? 'block' : 'none'; playerNameInput.value = ''; modalButton.onclick = () => { inGameModal.classList.add('hidden'); if(callback) callback(); }; }
+        function changeState(newState) { gameState = newState; mainMenu.classList.add('hidden'); optionsMenu.classList.add('hidden'); highScoresMenu.classList.add('hidden'); inGameModal.classList.add('hidden'); gameUI.classList.add('hidden'); canvas.classList.add('hidden'); switch(gameState) { case 'menu': mainMenu.classList.remove('hidden'); break; case 'options': optionsMenu.classList.remove('hidden'); break; case 'highscores': displayHighScores(); highScoresMenu.classList.remove('hidden'); break; case 'playing': gameUI.classList.remove('hidden'); canvas.classList.remove('hidden'); break; } }
+
+        // --- Main Game Loop ---
+        function update() { if (gameState !== 'playing') return; movePaddle(); moveBall(); brickCollision(); updatePowerUps(); }
+        function draw() { ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; ctx.fillRect(0, 0, canvas.width, canvas.height); drawBricks(); drawPaddle(); drawParticles(); drawPowerUps(); drawBall(); }
+        function gameLoop() {
+            if (gameState === 'playing') { update(); draw(); } 
+            else if (gameState === 'levelup') { level++; ball.speed += 0.5; createBricks(); resetBallAndPaddle(); updateUI(); showInGameModal(`Level ${level - 1} Cleared!`, `Get ready for Level ${level}`, "Continue", false, () => gameState = 'playing'); gameState = 'paused'; } 
+            else if (gameState === 'gameover') { checkAndSubmitHighScore(); gameState = 'paused'; }
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Input Handlers (Mouse, Keyboard, Touch) ---
+        function handleMove(clientX) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            let newX = (clientX - rect.left) * scaleX;
+            paddle.x = newX - paddle.width / 2;
+        }
+
+        function handleStart() {
+            if (audioCtx.state === 'suspended') { audioCtx.resume(); } // Required for audio on user interaction
+            if (ballOnPaddle) { ballOnPaddle = false; }
+        }
+
+        document.addEventListener('keydown', e => { if (e.key === 'Right' || e.key === 'ArrowRight') { keys.right = true; paddle.dx = paddle.speed; } else if (e.key === 'Left' || e.key === 'ArrowLeft') { keys.left = true; paddle.dx = -paddle.speed; } else if ((e.key === ' ' || e.key === 'Enter')) { handleStart(); } else if (e.key.toLowerCase() === 'p' && gameState === 'playing') { gameState = 'paused'; showInGameModal('Paused', 'Press Continue to resume', 'Continue', false, () => gameState = 'playing'); } });
+        document.addEventListener('keyup', e => { if (e.key === 'Right' || e.key === 'ArrowRight') { keys.right = false; if (!keys.left) paddle.dx = 0; } else if (e.key === 'Left' || e.key === 'ArrowLeft') { keys.left = false; if (!keys.right) paddle.dx = 0; } });
+        
+        // Mouse controls
+        canvas.addEventListener('mousemove', e => handleMove(e.clientX));
+        canvas.addEventListener('click', handleStart);
+
+        // Touch controls
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); handleMove(e.touches[0].clientX); }, { passive: false });
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); handleStart(); }, { passive: false });
+
+        newGameBtn.onclick = () => { setupNewGame(); changeState('playing'); };
+        optionsBtn.onclick = () => changeState('options');
+        highScoresBtn.onclick = () => changeState('highscores');
+        backToMenuBtn.onclick = () => changeState('menu');
+        backToMenuFromScoresBtn.onclick = () => changeState('menu');
+        densityButtons.forEach(btn => { btn.addEventListener('click', () => { gameSettings.boardDensity = btn.dataset.density; densityButtons.forEach(b => b.classList.remove('active')); btn.classList.add('active'); }); });
+
+        // --- Initial Setup ---
+        changeState('menu');
+        gameLoop();
+    };
+    </script>
+</body>
+</html>
