@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S.N.A.K.E. - A W.O.P.R. Simulation v4.0</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --crt-bg-color: #081008;
+            --crt-text-color: #00ff41;
+            --crt-accent-color: #ffbf00;
+            --crt-border-color: #008000;
+            --crt-shadow-color: rgba(0, 255, 65, 0.6);
+            --crt-error-color: #ff4141;
+            --crt-food-color: #ffbf00;
+            --crt-snake-head-color: #00ff41;
+            --crt-snake-body-color: #00c832;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+
+        body {
+            font-family: 'VT323', monospace;
+            background-color: var(--crt-bg-color);
+            color: var(--crt-text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .crt-screen {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 1rem;
+            box-sizing: border-box;
+            animation: flicker 0.1s infinite alternate;
+            filter: contrast(1.1) brightness(1.1) saturate(1.2);
+        }
+
+        .crt-screen::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: repeating-linear-gradient(to bottom, rgba(18, 16, 16, 0) 0px, rgba(0, 0, 0, 0.4) 1px, transparent 2px);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .crt-screen::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: radial-gradient(ellipse at center, rgba(0,0,0,0) 60%, rgba(0,0,0,0.8) 100%);
+            z-index: 3;
+            pointer-events: none;
+            border-radius: 2em;
+        }
+
+        .content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        h1, h2, .subtitle, .score-container, .instructions, .game-over-title, .pause-overlay h2 {
+            text-shadow: 0 0 5px var(--crt-shadow-color);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin: 0;
+            letter-spacing: 0.2em;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            color: var(--crt-accent-color);
+        }
+
+        .instructions {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .score-container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 600px;
+            font-size: 1.2rem;
+            padding: 0 0.5rem;
+            box-sizing: border-box;
+        }
+
+        #game-canvas {
+            border: 3px solid var(--crt-border-color);
+            box-shadow: 0 0 15px var(--crt-border-color), inset 0 0 10px var(--crt-border-color);
+            background-color: rgba(0, 32, 0, 0.2);
+            touch-action: none;
+            max-width: 90vw;
+            max-height: 70vh;
+        }
+
+        .screen {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .hidden {
+            display: none !important;
+        }
+
+        #main-menu-screen {
+            gap: 1rem;
+        }
+        .menu-section {
+            border: 2px solid var(--crt-border-color);
+            padding: 0.8rem 1.2rem;
+            width: 80%;
+            max-width: 500px;
+            background-color: rgba(0, 16, 0, 0.3);
+        }
+        .menu-section h2 {
+            margin-top: 0;
+            color: var(--crt-accent-color);
+            border-bottom: 1px dashed var(--crt-accent-color);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+        #high-score-list {
+            list-style: none;
+            padding: 0;
+            font-size: 1.2rem;
+            text-align: left;
+        }
+        #high-score-list li {
+            display: flex;
+            justify-content: space-between;
+        }
+        .controls-text {
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        #difficulty-selector button {
+            margin: 0 0.5rem;
+        }
+        #difficulty-selector button.active {
+            background-color: var(--crt-border-color);
+            color: var(--crt-bg-color);
+            text-shadow: none;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(8, 16, 8, 0.9);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+        }
+        .overlay h2 {
+            font-size: 2.5rem;
+            color: var(--crt-accent-color);
+        }
+
+        #game-over-screen {
+            border: 3px solid var(--crt-error-color);
+            box-shadow: 0 0 20px var(--crt-error-color);
+        }
+
+        .game-over-title {
+            font-size: 2rem;
+            color: var(--crt-error-color);
+            text-shadow: 0 0 7px var(--crt-error-color);
+            margin: 0;
+        }
+
+        #final-score {
+            font-size: 1.5rem;
+            color: var(--crt-accent-color);
+        }
+
+        #name-input-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+        }
+        #name-input {
+            background-color: var(--crt-bg-color);
+            border: 1px solid var(--crt-text-color);
+            color: var(--crt-text-color);
+            font-family: 'VT323', monospace;
+            font-size: 1.5rem;
+            text-align: center;
+            width: 80%;
+            max-width: 200px;
+            padding: 5px;
+            text-transform: uppercase;
+        }
+        #name-input:focus {
+            outline: none;
+            box-shadow: 0 0 10px var(--crt-shadow-color);
+        }
+
+        .crt-button {
+            margin-top: 1rem;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            color: var(--crt-text-color);
+            background-color: transparent;
+            border: 2px solid var(--crt-border-color);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            font-family: 'VT323', monospace;
+            text-shadow: 0 0 5px var(--crt-shadow-color);
+        }
+
+        .crt-button:hover {
+            background-color: var(--crt-border-color);
+            color: var(--crt-bg-color);
+            text-shadow: none;
+            box-shadow: 0 0 10px var(--crt-shadow-color);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.98; }
+        }
+
+        @media (max-width: 640px) {
+            h1 { font-size: 1.8rem; }
+            .subtitle { font-size: 0.8rem; }
+            .score-container { font-size: 1rem; }
+            .instructions { font-size: 0.8rem; }
+            .game-over-title { font-size: 1.5rem; }
+            #final-score { font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="crt-screen">
+        <div class="content">
+            
+            <!-- Main Menu Screen -->
+            <main id="main-menu-screen" class="screen">
+                <h1>//:SNAKE.EXE</h1>
+                <p class="subtitle">> GREETINGS PROFESSOR FALKEN. SHALL WE PLAY A GAME?</p>
+                <div class="menu-section" id="difficulty-selector">
+                    <h2>SELECT DIFFICULTY</h2>
+                    <button type="button" class="crt-button difficulty-btn" data-difficulty="easy">Easy</button>
+                    <button type="button" class="crt-button difficulty-btn active" data-difficulty="normal">Normal</button>
+                    <button type="button" class="crt-button difficulty-btn" data-difficulty="hard">Hard</button>
+                </div>
+                <button type="button" id="start-button" class="crt-button">INITIATE SIMULATION</button>
+                <div class="menu-section">
+                    <h2>HIGH SCORES</h2>
+                    <ol id="high-score-list"></ol>
+                </div>
+                <div class="menu-section">
+                    <h2>CONTROLS</h2>
+                    <p class="controls-text">
+                        KEYBOARD: [ARROW KEYS] OR [W,A,S,D]<br>
+                        PAUSE/RESUME: [P] OR [ESCAPE]<br>
+                        TOUCHSCREEN: [SWIPE]
+                    </p>
+                </div>
+            </main>
+
+            <!-- Game Screen -->
+            <div id="game-screen" class="screen hidden">
+                <div class="score-container">
+                    <p>SCORE: <span id="current-score">0</span></p>
+                    <p>HI-SCORE: <span id="high-score">0</span></p>
+                </div>
+                <canvas id="game-canvas"></canvas>
+                <p class="instructions">> USE ARROW KEYS OR [W,A,S,D] TO DIRECT THE SYSTEM. SWIPE ON TOUCHSCREENS.</p>
+            </div>
+            
+            <!-- Game Over Screen (Modal) -->
+            <div id="game-over-screen" class="overlay hidden" role="dialog" aria-labelledby="game-over-title" aria-modal="true">
+                <h2 id="game-over-title" class="game-over-title">>> CONNECTION TERMINATED</h2>
+                <p id="final-score"></p>
+                <div id="name-input-container" class="hidden">
+                    <label for="name-input">LOG YOUR INITIALS FOR THE ARCHIVE:</label>
+                    <input type="text" id="name-input" maxlength="3">
+                    <button type="button" id="submit-score-button" class="crt-button">SUBMIT SCORE</button>
+                </div>
+                <button type="button" id="return-to-menu-button" class="crt-button hidden">RETURN TO MENU</button>
+            </div>
+
+            <!-- Pause Screen (Modal) -->
+            <div id="pause-screen" class="overlay hidden" role="dialog" aria-labelledby="pause-title" aria-modal="true">
+                <h2 id="pause-title">>> SIMULATION PAUSED</h2>
+                <button type="button" id="resume-button" class="crt-button">RESUME</button>
+            </div>
+
+            <!-- ARIA Live Region for screen reader announcements -->
+            <div id="aria-announcer" class="sr-only" aria-live="polite"></div>
+
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- Configuration Object ---
+            const CONFIG = {
+                GRID_CELLS: 50,
+                DIFFICULTY: {
+                    easy: { speed: 150, decay: 0.99 },
+                    normal: { speed: 120, decay: 0.97 },
+                    hard: { speed: 90, decay: 0.95 },
+                },
+                MIN_SPEED: 50,
+                HIGH_SCORE_KEY: 'snakeHighScores_wargames_v4',
+                MAX_HIGH_SCORES: 5,
+            };
+
+            // --- DOM Element References ---
+            const mainMenuScreen = document.getElementById('main-menu-screen');
+            const gameScreen = document.getElementById('game-screen');
+            const gameOverScreen = document.getElementById('game-over-screen');
+            const pauseScreen = document.getElementById('pause-screen');
+            const startButton = document.getElementById('start-button');
+            const resumeButton = document.getElementById('resume-button');
+            const difficultyButtons = document.querySelectorAll('.difficulty-btn');
+            const highScoreList = document.getElementById('high-score-list');
+            const canvas = document.getElementById('game-canvas');
+            const ctx = canvas.getContext('2d');
+            const scoreDisplay = document.getElementById('current-score');
+            const highScoreDisplay = document.getElementById('high-score');
+            const finalScoreDisplay = document.getElementById('final-score');
+            const nameInputContainer = document.getElementById('name-input-container');
+            const nameInput = document.getElementById('name-input');
+            const submitScoreButton = document.getElementById('submit-score-button');
+            const returnToMenuButton = document.getElementById('return-to-menu-button');
+            const announcer = document.getElementById('aria-announcer');
+
+            // --- Cached Color & Audio Values ---
+            const COLORS = {};
+            let audioCtx;
+            const SOUNDS = {};
+
+            // --- Game State Variables ---
+            let gridSize;
+            let snake, food, score, highScores, dx, dy, gameRunning, gameSpeed, gameSpeedDecay;
+            let isPaused = false;
+            let currentDifficulty = 'normal';
+            let inputQueue = [];
+            
+            // --- Game Loop & Touch State ---
+            let lastRenderTime = 0;
+            let gameLoopId;
+            let touchStartX = 0, touchStartY = 0, touchEndX = 0, touchEndY = 0;
+
+            // --- Grouped Functions ---
+
+            /**
+             * Caches CSS color variables for performance.
+             * @function cacheColors
+             */
+            function cacheColors() {
+                const styles = getComputedStyle(document.documentElement);
+                COLORS.bgColor = styles.getPropertyValue('--crt-bg-color').trim();
+                COLORS.snakeHead = styles.getPropertyValue('--crt-snake-head-color').trim();
+                COLORS.snakeBody = styles.getPropertyValue('--crt-snake-body-color').trim();
+                COLORS.food = styles.getPropertyValue('--crt-food-color').trim();
+            }
+
+            /**
+             * Initializes the Web Audio API context and creates sound generators.
+             * This is called on the first user interaction to comply with browser policies.
+             * @function initAudio
+             */
+            function initAudio() {
+                if (audioCtx) return;
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    // Sound for eating food
+                    SOUNDS.eat = () => {
+                        const oscillator = audioCtx.createOscillator();
+                        const gainNode = audioCtx.createGain();
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioCtx.destination);
+                        oscillator.type = 'square';
+                        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+                        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.1);
+                        oscillator.start();
+                        oscillator.stop(audioCtx.currentTime + 0.1);
+                    };
+                    // Sound for game over
+                    SOUNDS.gameOver = () => {
+                        const oscillator = audioCtx.createOscillator();
+                        const gainNode = audioCtx.createGain();
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioCtx.destination);
+                        oscillator.type = 'sawtooth';
+                        oscillator.frequency.setValueAtTime(220, audioCtx.currentTime);
+                        oscillator.frequency.exponentialRampToValueAtTime(55, audioCtx.currentTime + 0.5);
+                        gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5);
+                        oscillator.start();
+                        oscillator.stop(audioCtx.currentTime + 0.5);
+                    };
+                } catch (e) {
+                    console.error("Web Audio API is not supported in this browser.", e);
+                }
+            }
+
+            // --- Screen & UI Management ---
+
+            /**
+             * Manages which primary screen is visible to the user.
+             * @param {string} screenName - 'menu' or 'game'.
+             */
+            function showScreen(screenName) {
+                mainMenuScreen.classList.add('hidden');
+                gameScreen.classList.add('hidden');
+                gameOverScreen.classList.add('hidden');
+
+                if (screenName === 'menu') {
+                    mainMenuScreen.classList.remove('hidden');
+                    displayHighScores();
+                } else if (screenName === 'game') {
+                    gameScreen.classList.remove('hidden');
+                }
+            }
+            
+            /**
+             * Loads, validates, and displays high scores from localStorage.
+             */
+            function displayHighScores() {
+                try {
+                    const storedScores = localStorage.getItem(CONFIG.HIGH_SCORE_KEY);
+                    highScores = storedScores ? JSON.parse(storedScores) : [];
+                    if (!Array.isArray(highScores)) highScores = [];
+                } catch (e) {
+                    console.error("Could not access or parse high scores.", e);
+                    highScores = [];
+                }
+
+                highScoreList.innerHTML = '';
+                if (highScores.length === 0) {
+                    highScoreList.innerHTML = '<li>NO SCORES LOGGED.</li>';
+                    return;
+                }
+                highScores.forEach(scoreItem => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span class="score-name">${scoreItem.name}</span> <span class="score-value">${scoreItem.score}</span>`;
+                    highScoreList.appendChild(li);
+                });
+            }
+
+            // --- Game Initialization & State ---
+
+            /**
+             * Sets up and starts a new game session.
+             */
+            function startGame() {
+                showScreen('game');
+                gameRunning = true;
+                isPaused = false;
+                
+                snake = [
+                    { x: CONFIG.GRID_CELLS / 2, y: CONFIG.GRID_CELLS / 2 },
+                    { x: CONFIG.GRID_CELLS / 2 - 1, y: CONFIG.GRID_CELLS / 2 },
+                    { x: CONFIG.GRID_CELLS / 2 - 2, y: CONFIG.GRID_CELLS / 2 },
+                ];
+                food = {};
+                score = 0;
+                dx = 1; dy = 0;
+                inputQueue = [];
+                
+                const difficultySettings = CONFIG.DIFFICULTY[currentDifficulty];
+                gameSpeed = difficultySettings.speed;
+                gameSpeedDecay = difficultySettings.decay;
+
+                const topScore = highScores.length > 0 ? highScores[0].score : 0;
+                highScoreDisplay.textContent = topScore;
+                scoreDisplay.textContent = score;
+
+                generateFood();
+                window.cancelAnimationFrame(gameLoopId);
+                lastRenderTime = 0; // Reset render time for the new loop
+                gameLoopId = window.requestAnimationFrame(main);
+            }
+
+            /**
+             * The main game loop, driven by requestAnimationFrame.
+             * @param {DOMHighResTimeStamp} currentTime - The current time provided by the browser.
+             */
+            function main(currentTime) {
+                if (!gameRunning) {
+                    handleGameOver();
+                    return;
+                }
+                gameLoopId = window.requestAnimationFrame(main);
+                
+                if (isPaused) return;
+
+                const secondsSinceLastRender = (currentTime - lastRenderTime) / 1000;
+                if (secondsSinceLastRender < gameSpeed / 1000) return;
+
+                lastRenderTime = currentTime;
+                
+                try {
+                    update();
+                    draw();
+                } catch (error) {
+                    console.error("A critical error occurred in the game loop:", error);
+                    gameRunning = false;
+                    alert("SYSTEM ERROR - CONNECTION LOST. Please refresh the page.");
+                }
+            }
+            
+            /**
+             * Toggles the paused state of the game.
+             */
+            function togglePause() {
+                if (!gameRunning) return;
+                isPaused = !isPaused;
+                pauseScreen.classList.toggle('hidden', !isPaused);
+                if (!isPaused) {
+                    // When unpausing, reset lastRenderTime to avoid a large jump
+                    lastRenderTime = performance.now(); 
+                    gameLoopId = window.requestAnimationFrame(main);
+                } else {
+                    window.cancelAnimationFrame(gameLoopId);
+                }
+            }
+
+            // --- Game Logic Update Functions ---
+
+            /**
+             * Processes inputs and updates the snake's state for one game tick.
+             */
+            function update() {
+                processInput();
+                updateSnake();
+            }
+
+            /**
+             * Draws all game elements onto the canvas.
+             */
+            function draw() {
+                clearCanvas();
+                drawFood();
+                drawSnake();
+            }
+            
+            function clearCanvas() {
+                ctx.fillStyle = COLORS.bgColor;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            
+            function drawSnake() {
+                snake.forEach((part, index) => {
+                    ctx.fillStyle = (index === 0) ? COLORS.snakeHead : COLORS.snakeBody;
+                    ctx.strokeStyle = COLORS.bgColor;
+                    ctx.fillRect(part.x * gridSize, part.y * gridSize, gridSize, gridSize);
+                    ctx.strokeRect(part.x * gridSize, part.y * gridSize, gridSize, gridSize);
+                });
+            }
+
+            function drawFood() {
+                ctx.fillStyle = COLORS.food;
+                ctx.strokeStyle = COLORS.bgColor;
+                ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize, gridSize);
+                ctx.strokeRect(food.x * gridSize, food.y * gridSize, gridSize, gridSize);
+            }
+
+            function updateSnake() {
+                const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+                if (head.x >= CONFIG.GRID_CELLS) head.x = 0;
+                if (head.x < 0) head.x = CONFIG.GRID_CELLS - 1;
+                if (head.y >= CONFIG.GRID_CELLS) head.y = 0;
+                if (head.y < 0) head.y = CONFIG.GRID_CELLS - 1;
+
+                snake.unshift(head);
+
+                if (checkSelfCollision()) {
+                    gameRunning = false;
+                    return;
+                }
+
+                const hasEatenFood = head.x === food.x && head.y === food.y;
+                if (hasEatenFood) {
+                    score += 10;
+                    scoreDisplay.textContent = score;
+                    announcer.textContent = `Score ${score}`;
+                    if (SOUNDS.eat) SOUNDS.eat();
+                    
+                    const topScore = highScores.length > 0 ? highScores[0].score : 0;
+                    if (score > topScore) {
+                        highScoreDisplay.textContent = score;
+                    }
+                    gameSpeed = Math.max(CONFIG.MIN_SPEED, gameSpeed * gameSpeedDecay);
+                    generateFood();
+                } else {
+                    snake.pop();
+                }
+            }
+
+            function generateFood() {
+                let foodX, foodY;
+                while (true) {
+                    foodX = Math.floor(Math.random() * CONFIG.GRID_CELLS);
+                    foodY = Math.floor(Math.random() * CONFIG.GRID_CELLS);
+                    if (!snake.some(part => part.x === foodX && part.y === foodY)) {
+                        food = { x: foodX, y: foodY };
+                        return;
+                    }
+                }
+            }
+
+            function checkSelfCollision() {
+                for (let i = 1; i < snake.length; i++) {
+                    if (snake[i].x === snake[0].x && snake[i].y === snake[0].y) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            function handleGameOver() {
+                window.cancelAnimationFrame(gameLoopId);
+                if (SOUNDS.gameOver) SOUNDS.gameOver();
+                finalScoreDisplay.textContent = `FINAL SCORE: ${score}`;
+                gameOverScreen.classList.remove('hidden');
+                announcer.textContent = `Game Over. Final Score ${score}.`;
+
+                const lowestHighScore = highScores.length < CONFIG.MAX_HIGH_SCORES ? 0 : highScores[CONFIG.MAX_HIGH_SCORES - 1].score;
+                
+                if (score > 0 && score >= lowestHighScore) {
+                    nameInputContainer.classList.remove('hidden');
+                    returnToMenuButton.classList.add('hidden');
+                    nameInput.value = '';
+                    nameInput.focus();
+                } else {
+                    nameInputContainer.classList.add('hidden');
+                    returnToMenuButton.classList.remove('hidden');
+                }
+            }
+
+            function saveHighScore() {
+                const name = nameInput.value.trim().toUpperCase() || 'WOPR';
+                const newScore = { name, score };
+
+                highScores.push(newScore);
+                highScores.sort((a, b) => b.score - a.score);
+                highScores.splice(CONFIG.MAX_HIGH_SCORES);
+                
+                try {
+                    localStorage.setItem(CONFIG.HIGH_SCORE_KEY, JSON.stringify(highScores));
+                } catch (e) {
+                    console.error("Failed to save high score.", e);
+                }
+                
+                showScreen('menu');
+            }
+
+            // --- Event Handling ---
+
+            /**
+             * Processes one input from the queue and updates the snake's direction.
+             */
+            function processInput() {
+                if (inputQueue.length === 0) return;
+                
+                const nextDirection = inputQueue.shift();
+                const { newDx, newDy } = nextDirection;
+                
+                // Prevent 180-degree turns
+                const isReversing = (dx === -newDx && dx !== 0) || (dy === -newDy && dy !== 0);
+                if (!isReversing) {
+                    dx = newDx;
+                    dy = newDy;
+                }
+            }
+            
+            /**
+             * Maps keyboard keys to direction vectors and adds them to the input queue.
+             * @param {KeyboardEvent} event - The keyboard event object.
+             */
+            function handleKeyInput(event) {
+                if (event.key === 'p' || event.key === 'Escape') {
+                    togglePause();
+                    return;
+                }
+                if (isPaused || !gameRunning) return;
+
+                let direction = null;
+                switch(event.key.toLowerCase()) {
+                    case "arrowleft": case "a": direction = { newDx: -1, newDy: 0 }; break;
+                    case "arrowup": case "w": direction = { newDx: 0, newDy: -1 }; break;
+                    case "arrowright": case "d": direction = { newDx: 1, newDy: 0 }; break;
+                    case "arrowdown": case "s": direction = { newDx: 0, newDy: 1 }; break;
+                }
+
+                if (direction) {
+                    event.preventDefault(); // Prevent scrolling with arrow keys
+                    inputQueue.push(direction);
+                }
+            }
+
+            /**
+             * Maps touch gestures to direction vectors and adds them to the input queue.
+             */
+            function handleGesture() {
+                const deltaX = touchEndX - touchStartX, deltaY = touchEndY - touchStartY;
+                let direction = null;
+
+                if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                    if (deltaX > 0) direction = { newDx: 1, newDy: 0 }; // Right
+                    else direction = { newDx: -1, newDy: 0 }; // Left
+                } else {
+                    if (deltaY > 0) direction = { newDx: 0, newDy: 1 }; // Down
+                    else direction = { newDx: 0, newDy: -1 }; // Up
+                }
+                inputQueue.push(direction);
+            }
+            
+            /**
+             * Sets the canvas size based on the window size.
+             */
+            let resizeTimeout;
+            function handleResize() {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => {
+                    const contentWidth = document.querySelector('.content').clientWidth;
+                    const contentHeight = document.querySelector('.content').clientHeight;
+                    const size = Math.min(contentWidth * 0.9, contentHeight * 0.7, 600);
+                    
+                    canvas.width = size;
+                    canvas.height = size;
+                    gridSize = canvas.width / CONFIG.GRID_CELLS;
+                    
+                    if (gameRunning && !isPaused) {
+                        draw();
+                    }
+                }, 100);
+            }
+
+            // --- Initial Setup ---
+
+            /**
+             * The main initialization function for the entire application.
+             */
+            function init() {
+                cacheColors();
+                handleResize();
+                showScreen('menu');
+
+                // --- Event Listeners ---
+                startButton.addEventListener("click", () => {
+                    initAudio(); // Initialize audio on first user interaction
+                    startGame();
+                });
+                submitScoreButton.addEventListener("click", saveHighScore);
+                returnToMenuButton.addEventListener("click", () => showScreen('menu'));
+                resumeButton.addEventListener("click", togglePause);
+
+                difficultyButtons.forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        currentDifficulty = e.target.dataset.difficulty;
+                        difficultyButtons.forEach(btn => btn.classList.remove('active'));
+                        e.target.classList.add('active');
+                    });
+                });
+
+                document.addEventListener("keydown", handleKeyInput);
+                canvas.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; touchStartY = e.changedTouches[0].screenY; }, { passive: true });
+                canvas.addEventListener('touchend', e => { touchEndX = e.changedTouches[0].screenX; touchEndY = e.changedTouches[0].screenY; handleGesture(); }, { passive: true }); 
+                window.addEventListener('resize', handleResize);
+            }
+
+            init();
+        });
+    </script>
+</body>
+</html>
