@@ -3,10 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Chosen Palette: War Games CRT Green -->
-    <!-- Application Structure Plan: The application is structured as a single-page game screen. The central element is the game canvas where all action occurs. Below it, a main control panel with tabs for 'Attack', 'Defense', and 'Workshop' allows the player to manage upgrades without leaving the game view. This tabbed interface is efficient, keeping the player engaged while providing easy access to crucial upgrade paths. The right-hand sidebar displays key real-time stats (Wave, Health, Currencies), giving immediate feedback on game state. This structure prioritizes gameplay and quick, informed decision-making, which is core to the idle/tower defense genre. -->
-    <!-- Visualization & Content Choices: The core gameplay is visualized on an HTML Canvas. Tower, enemies, and projectiles are rendered as simple geometric shapes (circles, squares) which is true to the original game's aesthetic and computationally efficient. Player and enemy stats are presented as clear text and progress bars for intuitive understanding. Upgrade options are listed in interactive menus; buttons are used to purchase upgrades, with their state (enabled/disabled) directly reflecting the player's available currency. This avoids complex charts and focuses on the direct cause-and-effect loop of earning and spending that defines the game. -->
-    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <title>The Tower - Idle Defense</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
@@ -78,9 +74,10 @@
             background-color: transparent; border: 2px solid var(--crt-green); color: var(--crt-green);
             transition: all 0.2s ease; text-shadow: var(--crt-glow); padding: 0.5rem 1rem;
         }
-        .btn-crt:hover:not(:disabled) {
+        .btn-crt:hover:not(:disabled), .btn-crt:focus {
             background-color: var(--crt-green); color: var(--crt-bg);
             box-shadow: 0 0 20px var(--crt-green); text-shadow: none;
+            outline: none;
         }
         .btn-crt.purchased {
              box-shadow: 0 0 30px var(--crt-green);
@@ -91,9 +88,25 @@
         .speed-btn-active { background-color: var(--crt-green); color: var(--crt-bg); text-shadow: none; }
         .progress-bar-bg { background-color: #222; border: 1px solid var(--crt-green-dark); }
         .progress-bar-fill { background: var(--crt-green); }
+        .progress-bar-fill.cooldown { background: #fcc419; } /* Yellow for cooldown */
         .stat-value { color: #fff; text-shadow: 0 0 5px var(--crt-green); }
-        .combo-display {
-            transition: opacity 0.5s, transform 0.5s;
+        .card-slot {
+            border: 2px solid var(--crt-green-dark);
+            background-color: rgba(57, 255, 20, 0.05);
+        }
+        .card {
+            border: 2px solid var(--crt-green);
+            cursor: pointer;
+        }
+        .card.equipped {
+            box-shadow: var(--crt-glow);
+            background-color: rgba(57, 255, 20, 0.2);
+        }
+        /* New Workshop styles */
+        .workshop-upgrade-card {
+            background-color: rgba(57, 255, 20, 0.05);
+            border: 1px solid var(--crt-green-dark);
+            padding: 0.75rem;
         }
     </style>
 </head>
@@ -108,27 +121,29 @@
         <div class="flex flex-col space-y-4 w-64">
             <button id="start-game-btn" class="btn-crt text-3xl">START GAME</button>
             <button id="workshop-btn" class="btn-crt text-3xl">WORKSHOP</button>
+            <button id="cards-btn" class="btn-crt text-3xl">CARDS</button>
         </div>
-        <p class="absolute bottom-4 text-lg">V 2.5</p>
+        <p class="absolute bottom-4 text-lg">V 3.0.6</p>
     </div>
 
     <!-- Game UI Wrapper -->
     <div id="game-ui-wrapper" class="hidden flex flex-col md:flex-row h-full w-full">
         <div id="game-container" class="relative flex-grow flex items-center justify-center p-2 md:p-4">
             <canvas id="gameCanvas" class="bg-black/50 border-2 border-green-900"></canvas>
-            <div id="wave-intermission-overlay" class="hidden absolute inset-0 bg-black/70 flex-col items-center justify-center text-center">
+            <div id="wave-intermission-overlay" class="hidden absolute inset-0 bg-black/70 flex-col items-center justify-center text-center z-20">
                 <p id="flavor-text" class="text-3xl mb-4 text-glow"></p>
                 <p id="intermission-countdown" class="text-6xl text-glow"></p>
             </div>
-            <div class="absolute top-2 left-2 text-lg">FPS: <span id="fps-counter">--</span></div>
-            <div id="combo-display" class="absolute top-12 left-2 text-2xl text-glow opacity-0 transform -translate-x-full"></div>
-            <button id="toggle-crt-btn" class="absolute top-2 right-2 btn-crt text-sm">CRT: ON</button>
+            <div class="absolute top-2 left-2 text-lg z-10">FPS: <span id="fps-counter">--</span></div>
+            <div id="ingame-stats-display" class="absolute top-10 left-2 text-lg z-10 bg-black/50 p-2 border border-green-900"></div>
+            <button id="toggle-crt-btn" class="absolute top-2 right-2 btn-crt text-sm z-10">CRT: ON</button>
         </div>
         
         <div id="side-panel" class="w-full md:w-72 bg-black/30 p-4 flex flex-col space-y-4 border-l-2 border-green-900 overflow-y-auto">
             <h2 class="text-3xl font-bold text-center text-glow">STATS</h2>
             <div>
                 <div class="flex justify-between items-center text-2xl"><span>Wave</span><span id="wave-display" class="font-bold stat-value">1</span></div>
+                <div id="wave-phase-display" class="text-lg text-center"></div>
                 <div class="progress-bar-bg w-full h-2 mt-1"><div id="wave-progress" class="progress-bar-fill h-full" style="width: 0%"></div></div>
             </div>
             <div id="hp-bar-container">
@@ -153,15 +168,15 @@
         </div>
         
         <div id="bottom-panel" class="w-full h-1/3 md:h-auto md:w-96 bg-black/30 p-4 border-t-2 md:border-t-0 md:border-l-2 border-green-900 flex flex-col">
-            <div class="flex border-b-2 border-green-900 mb-2">
-                <button class="tab-btn flex-1 p-2 text-2xl font-bold tab-active" onclick="showTab('attack')">(1) Attack</button>
-                <button class="tab-btn flex-1 p-2 text-2xl font-bold" onclick="showTab('defense')">(2) Defense</button>
-                <button class="tab-btn flex-1 p-2 text-2xl font-bold" onclick="showTab('utility')">(3) Utility</button>
+            <div id="upgrade-tab-list" role="tablist" class="flex border-b-2 border-green-900 mb-2">
+                <button role="tab" aria-selected="true" id="tab-attack" class="tab-btn flex-1 p-2 text-2xl font-bold tab-active">(1) Attack</button>
+                <button role="tab" aria-selected="false" id="tab-defense" class="tab-btn flex-1 p-2 text-2xl font-bold">(2) Defense</button>
+                <button role="tab" aria-selected="false" id="tab-utility" class="tab-btn flex-1 p-2 text-2xl font-bold">(3) Utility</button>
             </div>
             <div id="upgrade-tabs" class="flex-grow overflow-y-auto pr-2">
-                <div id="attack-tab" class="tab-content space-y-2"></div>
-                <div id="defense-tab" class="tab-content space-y-2 hidden"></div>
-                <div id="utility-tab" class="tab-content space-y-2 hidden"></div>
+                <div id="attack-tab" role="tabpanel" aria-labelledby="tab-attack" class="tab-content space-y-2"></div>
+                <div id="defense-tab" role="tabpanel" aria-labelledby="tab-defense" class="tab-content space-y-2 hidden"></div>
+                <div id="utility-tab" role="tabpanel" aria-labelledby="tab-utility" class="tab-content space-y-2 hidden"></div>
             </div>
         </div>
     </div>
@@ -182,23 +197,45 @@
     </div>
     
     <div id="workshop-modal" class="hidden absolute inset-0 bg-black bg-opacity-90 flex items-center justify-center z-10">
-         <div class="bg-black p-8 border-2 border-glow text-center w-full max-w-2xl h-5/6 flex flex-col">
+         <div class="bg-black p-8 border-2 border-glow text-center w-full max-w-4xl h-5/6 flex flex-col">
             <h2 class="text-6xl text-glow mb-4">WORKSHOP</h2>
             <div class="flex justify-between items-center text-3xl mb-4 border-b-2 border-green-900 pb-2">
                 <span>Total Coins (🪙):</span>
                 <span id="workshop-coins-display" class="font-bold text-yellow-400">0</span>
             </div>
-            <div class="flex border-b-2 border-green-900 mb-2">
-                <button class="tab-btn flex-1 p-2 text-2xl font-bold tab-active" onclick="showWorkshopTab('ws-attack')">Attack</button>
-                <button class="tab-btn flex-1 p-2 text-2xl font-bold" onclick="showWorkshopTab('ws-defense')">Defense</button>
-                <button class="tab-btn flex-1 p-2 text-2xl font-bold" onclick="showWorkshopTab('ws-utility')">Utility</button>
+            <div id="ws-tab-list" role="tablist" class="flex border-b-2 border-green-900 mb-2">
+                <button role="tab" aria-selected="true" id="ws-tab-attack" class="tab-btn flex-1 p-2 text-2xl font-bold tab-active">Attack</button>
+                <button role="tab" aria-selected="false" id="ws-tab-defense" class="tab-btn flex-1 p-2 text-2xl font-bold">Defense</button>
+                <button role="tab" aria-selected="false" id="ws-tab-utility" class="tab-btn flex-1 p-2 text-2xl font-bold">Utility</button>
             </div>
             <div id="workshop-content" class="flex-grow overflow-y-auto pr-2 space-y-3">
-                 <div id="ws-attack-tab" class="workshop-tab-content grid grid-cols-2 gap-3"></div>
-                 <div id="ws-defense-tab" class="workshop-tab-content grid grid-cols-2 gap-3 hidden"></div>
-                 <div id="ws-utility-tab" class="workshop-tab-content grid grid-cols-2 gap-3 hidden"></div>
+                 <div id="ws-attack-tab" role="tabpanel" aria-labelledby="ws-tab-attack" class="workshop-tab-content grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                 <div id="ws-defense-tab" role="tabpanel" aria-labelledby="ws-tab-defense" class="workshop-tab-content grid grid-cols-1 md:grid-cols-2 gap-3 hidden"></div>
+                 <div id="ws-utility-tab" role="tabpanel" aria-labelledby="ws-tab-utility" class="workshop-tab-content grid grid-cols-1 md:grid-cols-2 gap-3 hidden"></div>
             </div>
             <button id="close-workshop-btn" class="btn-crt text-2xl mt-4">BACK</button>
+        </div>
+    </div>
+
+    <div id="cards-modal" class="hidden absolute inset-0 bg-black bg-opacity-90 flex-col items-center justify-center z-10 p-8">
+        <div class="bg-black p-8 border-2 border-glow text-center w-full max-w-4xl h-full flex flex-col">
+            <h2 class="text-6xl text-glow mb-4">CARDS</h2>
+            <div class="flex justify-between items-center text-3xl mb-4 border-b-2 border-green-900 pb-2">
+                <span>Equipped: <span id="equipped-cards-count">0</span> / <span id="max-card-slots">5</span></span>
+                <span>Gems (💎): <span id="card-gems-display">0</span></span>
+            </div>
+            <div class="mb-4">
+                <h3 class="text-3xl text-glow">EQUIPPED SLOTS</h3>
+                <div id="card-slots-container" class="grid grid-cols-5 gap-4 mt-2 p-4 card-slot"></div>
+            </div>
+            <div class="flex-grow overflow-y-auto pr-2">
+                 <h3 class="text-3xl text-glow">COLLECTION</h3>
+                 <div id="card-collection-container" class="grid grid-cols-5 gap-4 mt-2"></div>
+            </div>
+            <div class="mt-4 flex justify-between">
+                <button id="buy-card-btn" class="btn-crt text-2xl">Buy Card (20 Gems)</button>
+                <button id="close-cards-btn" class="btn-crt text-2xl">BACK</button>
+            </div>
         </div>
     </div>
 
@@ -207,48 +244,51 @@
 <script>
 "use strict";
 
+// --- DOM Element Selection ---
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-
-// UI Elements
 const mainMenu = document.getElementById('main-menu');
 const gameUiWrapper = document.getElementById('game-ui-wrapper');
 const gameOverModal = document.getElementById('game-over-modal');
 const workshopModal = document.getElementById('workshop-modal');
+const cardsModal = document.getElementById('cards-modal');
 const intermissionOverlay = document.getElementById('wave-intermission-overlay');
 const intermissionCountdown = document.getElementById('intermission-countdown');
 const flavorTextDisplay = document.getElementById('flavor-text');
 const screenContainer = document.getElementById('screen-container');
-const comboDisplay = document.getElementById('combo-display');
+const ingameStatsDisplay = document.getElementById('ingame-stats-display');
 const hpBarContainer = document.getElementById('hp-bar-container');
-
-// Buttons
 const startGameBtn = document.getElementById('start-game-btn');
 const workshopBtn = document.getElementById('workshop-btn');
+const cardsBtn = document.getElementById('cards-btn');
 const restartBtn = document.getElementById('restart-btn');
 const workshopFromGameOverBtn = document.getElementById('workshop-from-gameover-btn');
 const mainMenuBtn = document.getElementById('main-menu-btn');
 const closeWorkshopBtn = document.getElementById('close-workshop-btn');
+const closeCardsBtn = document.getElementById('close-cards-btn');
+const buyCardBtn = document.getElementById('buy-card-btn');
 const pauseBtn = document.getElementById('pause-btn');
 const speed1xBtn = document.getElementById('speed-1x-btn');
 const speed2xBtn = document.getElementById('speed-2x-btn');
 const speed4xBtn = document.getElementById('speed-4x-btn');
 const toggleCrtBtn = document.getElementById('toggle-crt-btn');
-
-// Displays
 const waveDisplay = document.getElementById('wave-display');
 const hpDisplay = document.getElementById('hp-display');
 const cashDisplay = document.getElementById('cash-display');
 const gemsDisplay = document.getElementById('gems-display');
+const cardGemsDisplay = document.getElementById('card-gems-display');
 const workshopCoinsDisplay = document.getElementById('workshop-coins-display');
 const hpBar = document.getElementById('hp-bar');
 const waveProgress = document.getElementById('wave-progress');
+const wavePhaseDisplay = document.getElementById('wave-phase-display');
 const finalWaveDisplay = document.getElementById('final-wave');
 const finalCoinsDisplay = document.getElementById('final-coins');
 const highScoreDisplay = document.getElementById('high-score-display');
 const fpsCounter = document.getElementById('fps-counter');
-
-// Tabs
+const cardSlotsContainer = document.getElementById('card-slots-container');
+const cardCollectionContainer = document.getElementById('card-collection-container');
+const equippedCardsCount = document.getElementById('equipped-cards-count');
+const maxCardSlots = document.getElementById('max-card-slots');
 const attackTab = document.getElementById('attack-tab');
 const defenseTab = document.getElementById('defense-tab');
 const utilityTab = document.getElementById('utility-tab');
@@ -256,13 +296,15 @@ const wsAttackTab = document.getElementById('ws-attack-tab');
 const wsDefenseTab = document.getElementById('ws-defense-tab');
 const wsUtilityTab = document.getElementById('ws-utility-tab');
 
+// --- Game State and Config ---
 let animationFrameId;
 const TOWER_POS = { x: 0, y: 0 };
 let gameState = {};
 let battleUpgrades = {};
-let workshopUpgrades = {};
+let workshopState = {};
 let spawnTimeouts = [];
 let particles = [];
+let visualEffects = [];
 
 const FLAVOR_TEXTS = [
     "The prudent see danger and take refuge...",
@@ -277,60 +319,97 @@ const FLAVOR_TEXTS = [
     "He who is slow to anger is better than the mighty..."
 ];
 
+const GAME_CONFIG = {
+    WAVE_SPAWN_DURATION: 26,
+    WAVE_COOLDOWN_NORMAL: 9,
+    WAVE_COOLDOWN_BOSS: 12,
+    PARTICLE_CAP: 500,
+};
+
+const ENEMY_TYPES = {
+    BASIC: 'Basic',
+    FAST: 'Fast',
+    ELITE_FAST: 'Elite Fast',
+    TANK: 'Tank',
+    RANGED: 'Ranged',
+    BOSS: 'Boss',
+}
+
+const SHAPES = {
+    SQUARE: 'square',
+    TRIANGLE: 'triangle',
+    HEXAGON: 'hexagon',
+    CIRCLE: 'circle',
+    DIAMOND: 'diamond',
+};
+
 const DEFAULT_UPGRADES = {
     battle: {
         attack: {
             'Damage': { level: 0, cost: 10, costGrowth: 1.15, costGrowth_taper: 1.25, taper_level: 5, effect: 5, effect_taper: 2, taper_level_effect: 3 },
             'Attack Speed': { level: 0, cost: 25, costGrowth: 1.20, effect: 0.2, maxStat: 10 },
-            'Range': { level: 0, cost: 15, costGrowth: 1.2, effect: 10 },
-            'Crit Chance': { level: 0, cost: 50, costGrowth: 1.2, effect: 0.01, diminishing: true },
-            'Crit Factor': { level: 0, cost: 75, costGrowth: 1.3, effect: 0.1 },
-            'Multishot Chance': { level: 0, cost: 100, costGrowth: 1.25, effect: 0.02 },
-            'Bounce Chance': { level: 0, cost: 120, costGrowth: 1.3, effect: 0.02 },
+            'Range': { level: 0, cost: 100, costGrowth: 1.2, effect: 10, unlock: { type: 'wave', amount: 5 } },
+            'Crit Chance': { level: 0, cost: 50, costGrowth: 1.2, effect: 0.01, diminishing: true, unlock: { type: 'coinsSpent', category: 'attack', amount: 100 } },
+            'Crit Factor': { level: 0, cost: 75, costGrowth: 1.3, effect: 0.1, unlock: { type: 'level', category: 'attack', name: 'Crit Chance', level: 1 } },
+            'Damage/Meter': { level: 0, cost: 200, costGrowth: 1.4, effect: 0.001, unlock: { type: 'level', category: 'attack', name: 'Range', level: 1 } },
+            'Rapid Fire': { level: 0, cost: 150, costGrowth: 1.3, effect: 0.01, unlock: { type: 'level', category: 'attack', name: 'Attack Speed', level: 5 } },
         },
         defense: {
             'Health': { level: 0, cost: 15, costGrowth: 1.15, costGrowth_taper: 1.25, taper_level: 5, effect: 30, effect_taper: 10, taper_level_effect: 5 },
-            'Health Regen': { level: 0, cost: 50, costGrowth: 1.5, effect: 0.1 },
-            'Defense %': { level: 0, cost: 80, costGrowth: 1.2, effect: 0.01 },
-            'Thorns': { level: 0, cost: 60, costGrowth: 1.25, effect: 5 },
-            'Knockback Chance': { level: 0, cost: 90, costGrowth: 1.3, effect: 0.01 },
-            'Orbs': { level: 0, cost: 150, costGrowth: 1.5, effect: 1, maxLevel: 3 },
-            'Shockwave Size': { level: 0, cost: 200, costGrowth: 1.6, effect: 10 },
+            'Defense Absolute': { level: 0, cost: 100, costGrowth: 1.2, effect: 1, unlock: { type: 'level', category: 'defense', name: 'Health', level: 5 } },
+            'Defense %': { level: 0, cost: 80, costGrowth: 1.2, effect: 0.01, unlock: { type: 'level', category: 'defense', name: 'Health', level: 1 } },
+            'Thorns': { level: 0, cost: 60, costGrowth: 1.25, effect: 5, unlock: { type: 'coinsSpent', category: 'defense', amount: 200 } },
+            'Lifesteal': { level: 0, cost: 300, costGrowth: 1.5, effect: 0.001, unlock: { type: 'coinsSpent', category: 'attack', amount: 500 } },
         },
         utility: {
-            'Cash Bonus': { level: 0, cost: 40, costGrowth: 1.25, effect: 0.05 },
-            'Coins/Kill Bonus': { level: 0, cost: 60, costGrowth: 1.3, effect: 0.05 },
+            'Cash/Kill': { level: 0, cost: 40, costGrowth: 1.25, effect: 0.1 },
+            'Coins/Kill': { level: 0, cost: 60, costGrowth: 1.3, effect: 0.05 },
+            'Cash/Wave': { level: 0, cost: 100, costGrowth: 1.4, effect: 5, unlock: { type: 'wave', amount: 20 } },
+            'Coins/Wave': { level: 0, cost: 150, costGrowth: 1.5, effect: 1, unlock: { type: 'wave', amount: 20 } },
+            'Interest': { level: 0, cost: 250, costGrowth: 1.8, effect: 0.005, unlock: { type: 'wave', amount: 30 } },
         }
     },
+    // WORKSHOP OVERHAUL: Added descriptions and formatters for a better UI.
     workshop: {
         attack: {
-            'Damage': { level: 0, cost: 50, costGrowth: 1.4, effect: 0, baseEffect: 1 },
-            'Attack Speed': { level: 0, cost: 100, costGrowth: 1.5, effect: 0, baseEffect: 0.02 },
-            'Range': { level: 0, cost: 50, costGrowth: 1.4, effect: 0, baseEffect: 5 },
-            'Crit Chance': { level: 0, cost: 200, costGrowth: 1.25, effect: 0, baseEffect: 0.005 },
-            'Crit Factor': { level: 0, cost: 300, costGrowth: 1.3, effect: 0, baseEffect: 0.05 },
-            'Multishot Chance': { level: 0, cost: 400, costGrowth: 1.3, effect: 0, baseEffect: 0.01 },
-            'Multishot Targets': { level: 0, cost: 500, costGrowth: 1.4, effect: 0, baseEffect: 1, maxLevel: 7 },
-            'Bounce Chance': { level: 0, cost: 450, costGrowth: 1.35, effect: 0, baseEffect: 0.01 },
-            'Bounce Targets': { level: 0, cost: 550, costGrowth: 1.45, effect: 0, baseEffect: 1, maxLevel: 7 },
+            'Damage': { level: 0, cost: 50, costGrowth: 1.4, effect: 0, baseEffect: 1, description: 'Increases base tower damage.', formatEffect: (val) => `+${val.toFixed(0)}` },
+            'Attack Speed': { level: 0, cost: 100, costGrowth: 1.5, effect: 0, baseEffect: 0.02, description: 'Increases base attack speed.', formatEffect: (val) => `+${(val * 100).toFixed(1)}%` },
+            'Range': { level: 0, cost: 50, costGrowth: 1.4, effect: 0, baseEffect: 5, description: 'Increases tower attack range.', formatEffect: (val) => `+${val.toFixed(0)}m` },
+            'Crit Chance': { level: 0, cost: 200, costGrowth: 1.25, effect: 0, baseEffect: 0.005, description: 'Increases critical hit chance.', formatEffect: (val) => `${(val * 100).toFixed(2)}%` },
+            'Crit Factor': { level: 0, cost: 300, costGrowth: 1.3, effect: 0, baseEffect: 0.05, description: 'Increases critical hit damage multiplier.', formatEffect: (val) => `x${(1.5 + val).toFixed(2)}` },
+            'Multishot Chance': { level: 0, cost: 400, costGrowth: 1.3, effect: 0, baseEffect: 0.01, description: 'Chance to fire at multiple targets.', formatEffect: (val) => `${(val * 100).toFixed(1)}%` },
+            'Multishot Targets': { level: 0, cost: 500, costGrowth: 1.4, effect: 0, baseEffect: 1, maxLevel: 7, description: 'Number of extra targets on multishot.', formatEffect: (val) => `+${val} targets` },
+            'Rapid Fire Chance': { level: 0, cost: 450, costGrowth: 1.35, effect: 0, baseEffect: 0.005, description: 'Chance to trigger a temporary massive speed boost.', formatEffect: (val) => `${(val * 100).toFixed(2)}%` },
+            'Bounce Chance': { level: 0, cost: 450, costGrowth: 1.35, effect: 0, baseEffect: 0.01, description: 'Chance for projectiles to bounce to another target.', formatEffect: (val) => `${(val * 100).toFixed(1)}%` },
+            'Bounce Targets': { level: 0, cost: 550, costGrowth: 1.45, effect: 0, baseEffect: 1, maxLevel: 7, description: 'Number of times a projectile can bounce.', formatEffect: (val) => `+${val} bounces` },
         },
         defense: {
-            'Health': { level: 0, cost: 10, costGrowth: 1.2, effect: 0, baseEffect: 10 },
-            'Health Regen': { level: 0, cost: 100, costGrowth: 1.4, effect: 0, baseEffect: 0.05 },
-            'Defense %': { level: 0, cost: 150, costGrowth: 1.25, effect: 0, baseEffect: 0.005 },
-            'Thorns': { level: 0, cost: 120, costGrowth: 1.3, effect: 0, baseEffect: 2 },
-            'Knockback Chance': { level: 0, cost: 250, costGrowth: 1.3, effect: 0, baseEffect: 0.005 },
-            'Knockback Force': { level: 0, cost: 350, costGrowth: 1.35, effect: 0, baseEffect: 0.01 },
-            'Orbs': { level: 0, cost: 500, costGrowth: 1.6, effect: 0, baseEffect: 1, maxLevel: 3 },
-            'Orb Speed': { level: 0, cost: 200, costGrowth: 1.2, effect: 0, baseEffect: 0.1 },
-            'Shockwave Size': { level: 0, cost: 600, costGrowth: 1.5, effect: 0, baseEffect: 5 },
-            'Shockwave Freq': { level: 0, cost: 700, costGrowth: 1.6, effect: 0, baseEffect: 0.05 },
+            'Health': { level: 0, cost: 10, costGrowth: 1.2, effect: 0, baseEffect: 10, description: 'Increases base tower health.', formatEffect: (val) => `+${val.toFixed(0)}` },
+            'Health Regen': { level: 0, cost: 100, costGrowth: 1.4, effect: 0, baseEffect: 0.05, description: 'Regenerates a small amount of HP per second.', formatEffect: (val) => `+${val.toFixed(2)}/s` },
+            'Defense %': { level: 0, cost: 150, costGrowth: 1.25, effect: 0, baseEffect: 0.005, description: 'Reduces all incoming damage by a percentage.', formatEffect: (val) => `${(val * 100).toFixed(2)}%` },
+            'Thorns': { level: 0, cost: 120, costGrowth: 1.3, effect: 0, baseEffect: 2, description: 'Damages enemies that collide with the tower.', formatEffect: (val) => `${val.toFixed(0)} dmg` },
+            'Knockback Chance': { level: 0, cost: 250, costGrowth: 1.3, effect: 0, baseEffect: 0.005, description: 'Chance to knock enemies back on hit.', formatEffect: (val) => `${(val * 100).toFixed(2)}%` },
+            'Knockback Force': { level: 0, cost: 350, costGrowth: 1.35, effect: 0, baseEffect: 0.01, description: 'How far enemies are knocked back.', formatEffect: (val) => `+${(val * 100).toFixed(1)}%` },
+            'Orbs': { level: 0, cost: 500, costGrowth: 1.6, effect: 0, baseEffect: 1, maxLevel: 3, description: 'Summons permanent defensive orbs.', formatEffect: (val) => `${val} orbs` },
+            'Orb Speed': { level: 0, cost: 200, costGrowth: 1.2, effect: 0, baseEffect: 0.1, description: 'Increases the rotation speed of orbs.', formatEffect: (val) => `+${(val * 100 - 100).toFixed(0)}%` },
+            'Shockwave Size': { level: 0, cost: 600, costGrowth: 1.5, effect: 0, baseEffect: 5, description: 'Increases the radius of the damaging shockwave.', formatEffect: (val) => `+${val.toFixed(0)}m` },
+            'Shockwave Freq': { level: 0, cost: 700, costGrowth: 1.6, effect: 0, baseEffect: 0.05, description: 'Increases how often the shockwave triggers.', formatEffect: (val) => `${val.toFixed(2)}/s` },
         },
         utility: {
-            'Cash Bonus': { level: 0, cost: 80, costGrowth: 1.25, effect: 0, baseEffect: 0.02 },
-            'Coins/Kill': { level: 0, cost: 20, costGrowth: 1.3, effect: 0, baseEffect: 0.1 },
+            'Cash Bonus': { level: 0, cost: 80, costGrowth: 1.25, effect: 0, baseEffect: 0.02, description: 'Increases cash earned during a run.', formatEffect: (val) => `+${(val * 100).toFixed(1)}%` },
+            'Coins/Kill': { level: 0, cost: 20, costGrowth: 1.3, effect: 0, baseEffect: 0.1, description: 'Increases permanent coins earned from kills.', formatEffect: (val) => `x${(1 + val).toFixed(2)}` },
+            'Wave Accelerator': { level: 0, cost: 150, costGrowth: 1.4, effect: 0, baseEffect: 0.02, maxLevel: 25, description: 'Reduces the cooldown time between waves.', formatEffect: (val) => `-${(val * 100).toFixed(1)}%` },
         }
     }
+};
+
+const CARD_DATA = {
+    'Damage': { type: 'attack', effect: (level) => 1 + 0.2 * level, maxLevel: 7 },
+    'Attack Speed': { type: 'attack', effect: (level) => 1 + 0.1 * level, maxLevel: 7 },
+    'Health': { type: 'defense', effect: (level) => 1 + 0.2 * level, maxLevel: 7 },
+    'Coins': { type: 'utility', effect: (level) => 1 + 0.1 * level, maxLevel: 7 },
+    'Cash': { type: 'utility', effect: (level) => 1 + 0.1 * level, maxLevel: 7 },
+    'Wave Accelerator': { type: 'utility', effect: (level) => 1 - (0.05 * level), maxLevel: 10 },
 };
 
 function deepCopy(obj) {
@@ -338,38 +417,47 @@ function deepCopy(obj) {
 }
 
 function getDefaultGameState() {
-    const ws = workshopUpgrades;
+    const wsUpg = workshopState.upgrades;
     return {
         isRunning: true,
         isPaused: false,
         gameSpeed: 1,
         isIntermission: false,
         wave: 1,
+        wavePhase: 'spawning',
+        waveTimer: 0,
+        currentPhaseDuration: 0,
+        isSpawning: false,
         cash: 0,
         runCoins: 0,
         gems: 0,
-        combo: { count: 0, timer: 0, multiplier: 1 },
         interest: { wavesSinceUpgrade: 0 },
+        coinsSpent: { attack: 0, defense: 0, utility: 0 },
         tower: {
-            hp: 100 + ws.Health.effect,
-            maxHp: 100 + ws.Health.effect,
-            damage: 2 + ws.Damage.effect,
-            attackSpeed: 1 + ws['Attack Speed'].effect,
-            range: 150 + ws.Range.effect,
-            critChance: 0 + ws['Crit Chance'].effect,
-            critFactor: 1.5 + ws['Crit Factor'].effect,
-            multishotChance: 0 + ws['Multishot Chance'].effect,
-            multishotTargets: 2 + ws['Multishot Targets'].effect,
-            bounceChance: 0 + ws['Bounce Chance'].effect,
-            bounceTargets: 1 + ws['Bounce Targets'].effect,
-            defensePercent: 0 + ws['Defense %'].effect,
-            thorns: 0 + ws.Thorns.effect,
-            knockbackChance: 0 + ws['Knockback Chance'].effect,
-            knockbackForce: 0.1 + ws['Knockback Force'].effect,
-            orbs: 0 + ws.Orbs.effect,
-            orbSpeed: 1 + ws['Orb Speed'].effect,
-            shockwaveSize: 0 + ws['Shockwave Size'].effect,
-            shockwaveFreq: 0 + ws['Shockwave Freq'].effect,
+            hp: 100 + wsUpg.defense.Health.effect,
+            maxHp: 100 + wsUpg.defense.Health.effect,
+            damage: 2 + wsUpg.attack.Damage.effect,
+            attackSpeed: 1 + wsUpg.attack['Attack Speed'].effect,
+            range: 150 + wsUpg.attack.Range.effect,
+            critChance: 0 + wsUpg.attack['Crit Chance'].effect,
+            critFactor: 1.5 + wsUpg.attack['Crit Factor'].effect,
+            multishotChance: 0 + wsUpg.attack['Multishot Chance'].effect,
+            multishotTargets: 2 + wsUpg.attack['Multishot Targets'].effect,
+            rapidFireChance: 0 + wsUpg.attack['Rapid Fire Chance'].effect,
+            rapidFireDuration: 0,
+            bounceChance: 0 + wsUpg.attack['Bounce Chance'].effect,
+            bounceTargets: 1 + wsUpg.attack['Bounce Targets'].effect,
+            defensePercent: 0 + wsUpg.defense['Defense %'].effect,
+            defenseAbsolute: 0,
+            thorns: 0 + wsUpg.defense.Thorns.effect,
+            lifesteal: 0,
+            damagePerMeter: 0,
+            knockbackChance: 0 + wsUpg.defense['Knockback Chance'].effect,
+            knockbackForce: 0.1 + wsUpg.defense['Knockback Force'].effect,
+            orbs: 0 + wsUpg.defense.Orbs.effect,
+            orbSpeed: 1 + wsUpg.defense['Orb Speed'].effect,
+            shockwaveSize: 0 + wsUpg.defense['Shockwave Size'].effect,
+            shockwaveFreq: 0 + wsUpg.defense['Shockwave Freq'].effect,
             attackCooldown: 0,
             shockwaveCooldown: 0,
             projectiles: [],
@@ -382,42 +470,44 @@ function getDefaultGameState() {
     };
 }
 
+// --- Data Persistence (LocalStorage) ---
+
 function loadWorkshopStats() {
     const saved = localStorage.getItem('towerWorkshopStats');
-    const defaultStructure = deepCopy(DEFAULT_UPGRADES.workshop);
-    const loadedUpgrades = {};
-
-    for (const category in defaultStructure) {
-        loadedUpgrades[category] = {};
-        for (const key in defaultStructure[category]) {
-            loadedUpgrades[category][key] = { ...defaultStructure[category][key] };
-        }
-    }
+    const defaultState = {
+        totalCoins: 0,
+        gems: 0,
+        upgrades: deepCopy(DEFAULT_UPGRADES.workshop)
+    };
 
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
-            for (const category in parsed.upgrades) {
-                for (const key in parsed.upgrades[category]) {
-                    if (loadedUpgrades[category] && loadedUpgrades[category][key]) {
-                        Object.assign(loadedUpgrades[category][key], parsed.upgrades[category][key]);
+            defaultState.totalCoins = parsed.totalCoins || 0;
+            defaultState.gems = parsed.gems || 0;
+            if (parsed.upgrades) {
+                for (const category in defaultState.upgrades) {
+                    if (parsed.upgrades[category]) {
+                        for (const key in defaultState.upgrades[category]) {
+                            if (parsed.upgrades[category] && parsed.upgrades[category][key]) {
+                                Object.assign(defaultState.upgrades[category][key], parsed.upgrades[category][key]);
+                            }
+                        }
                     }
                 }
             }
-            workshopUpgrades = {};
-            Object.values(loadedUpgrades).forEach(cat => Object.assign(workshopUpgrades, cat));
-            return { totalCoins: parsed.totalCoins || 0, gems: parsed.gems || 0, upgrades: loadedUpgrades };
         } catch (e) {
             console.error("Failed to parse workshop stats, resetting.", e);
             localStorage.removeItem('towerWorkshopStats');
         }
     }
-    
-    workshopUpgrades = {};
-    Object.values(defaultStructure).forEach(cat => Object.assign(workshopUpgrades, cat));
-    return { totalCoins: 0, gems: 0, upgrades: defaultStructure };
+    return defaultState;
 }
-let workshopState = loadWorkshopStats();
+
+function saveWorkshopStats() {
+    localStorage.setItem('towerWorkshopStats', JSON.stringify(workshopState));
+}
+
 let highScore = { wave: 0 };
 function loadHighScore() {
     const saved = localStorage.getItem('towerHighScore');
@@ -433,30 +523,51 @@ function saveHighScore() {
     localStorage.setItem('towerHighScore', JSON.stringify(highScore));
 }
 
-function saveWorkshopStats() {
-    workshopState.upgrades = {
-        attack: {}, defense: {}, utility: {}
-    };
-    const allUpgrades = DEFAULT_UPGRADES.workshop;
-    for(const cat in allUpgrades) {
-        for(const upg in allUpgrades[cat]) {
-            workshopState.upgrades[cat][upg] = workshopUpgrades[upg];
+let cardState = {
+    collection: {},
+    equipped: [],
+    slots: 5,
+};
+function loadCardState() {
+    const saved = localStorage.getItem('towerCardState');
+    if (saved) {
+        try {
+            const parsed = JSON.parse(saved);
+            cardState.collection = parsed.collection || {};
+            cardState.equipped = parsed.equipped || [];
+            cardState.slots = parsed.slots || 5;
+        } catch (e) {
+            console.error("Failed to parse card state, resetting.", e);
+            localStorage.removeItem('towerCardState');
         }
     }
-    localStorage.setItem('towerWorkshopStats', JSON.stringify(workshopState));
 }
+function saveCardState() {
+    localStorage.setItem('towerCardState', JSON.stringify(cardState));
+}
+
 
 function resizeCanvas() {
     const dpr = window.devicePixelRatio || 1;
     const gameContainer = document.getElementById('game-container');
-    const panelWidth = document.getElementById('side-panel').offsetWidth + document.getElementById('bottom-panel').offsetWidth;
-    const availableWidth = window.innerWidth - (window.innerWidth > 768 ? panelWidth : 0);
-    const availableHeight = window.innerHeight - (window.innerWidth <= 768 ? (document.getElementById('side-panel').offsetHeight + document.getElementById('bottom-panel').offsetHeight) : 0);
+    const sidePanel = document.getElementById('side-panel');
+    const bottomPanel = document.getElementById('bottom-panel');
+
+    let availableWidth = window.innerWidth;
+    let availableHeight = window.innerHeight;
+
+    if (window.innerWidth > 768) { 
+        availableWidth -= (sidePanel.offsetWidth + bottomPanel.offsetWidth);
+    } else { 
+        availableHeight -= (sidePanel.offsetHeight + bottomPanel.offsetHeight);
+    }
     
     const size = Math.min(availableWidth, availableHeight) * 0.95;
     
     canvas.style.width = `${size}px`;
     canvas.style.height = `${size}px`;
+    
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     canvas.width = size * dpr;
     canvas.height = size * dpr;
     ctx.scale(dpr, dpr);
@@ -474,16 +585,36 @@ function setupGame() {
     clearSpawnTimeouts();
     resizeCanvas();
     gameState = getDefaultGameState();
+    gameState.time = performance.now();
     gameState.gems = workshopState.gems;
     battleUpgrades = deepCopy(DEFAULT_UPGRADES.battle);
+
+    cardState.equipped.forEach(cardName => {
+        const card = cardState.collection[cardName];
+        const cardInfo = CARD_DATA[cardName];
+        if (card && cardInfo) {
+            const multiplier = cardInfo.effect(card.level);
+            switch(cardName) {
+                case 'Damage': gameState.tower.damage *= multiplier; break;
+                case 'Attack Speed': gameState.tower.attackSpeed *= multiplier; break;
+                case 'Health': 
+                    gameState.tower.maxHp *= multiplier; 
+                    gameState.tower.hp *= multiplier;
+                    break;
+            }
+        }
+    });
+
     updateUI();
     generateUpgradeUI();
-    spawnWave();
+    startWave();
     
     if (!animationFrameId) {
-        gameLoop();
+        animationFrameId = requestAnimationFrame(gameLoop);
     }
 }
+
+// --- Main Game Loop ---
 
 function gameLoop(timestamp) {
     if (!gameState.isRunning) {
@@ -491,7 +622,7 @@ function gameLoop(timestamp) {
         animationFrameId = null;
         return;
     }
-    let deltaTime = (timestamp - gameState.time) / 1000 || 0.016;
+    let deltaTime = (timestamp - gameState.time) / 1000;
     fpsCounter.textContent = Math.round(1 / deltaTime);
     deltaTime = Math.min(deltaTime, 0.05);
     gameState.time = timestamp;
@@ -506,21 +637,21 @@ function gameLoop(timestamp) {
 }
 
 function update(deltaTime) {
+    updateWave(deltaTime);
     updateTower(deltaTime);
     updateEnemies(deltaTime);
     updateProjectiles(deltaTime);
-    updateCombo(deltaTime);
     updateParticles(deltaTime);
+    updateVisualEffects(deltaTime);
     
+    updateUI();
+
     if (gameState.tower.hp / gameState.tower.maxHp < 0.25) {
         hpBarContainer.classList.add('low-hp');
     } else {
         hpBarContainer.classList.remove('low-hp');
     }
 
-    if (gameState.enemies.length === 0 && gameState.enemiesSlainThisWave >= gameState.totalEnemiesThisWave) {
-        nextWave();
-    }
     if (gameState.tower.hp <= 0) {
         gameOver();
     }
@@ -541,22 +672,47 @@ function draw(deltaTime) {
     drawOrbs(deltaTime);
     drawShockwave(deltaTime);
     drawParticles();
+    drawVisualEffects();
 }
+
+// --- UI Update Functions ---
 
 function updateUI() {
     if(!gameState.isRunning && !gameOverModal.classList.contains('hidden')) return;
     waveDisplay.textContent = gameState.wave;
-    hpDisplay.textContent = `${Math.ceil(gameState.tower.hp)}/${gameState.tower.maxHp}`;
+    hpDisplay.textContent = `${Math.ceil(gameState.tower.hp)}/${Math.ceil(gameState.tower.maxHp)}`;
     cashDisplay.textContent = `${Math.floor(gameState.cash)}`;
     gemsDisplay.textContent = `${gameState.gems}`;
     workshopCoinsDisplay.textContent = Math.floor(workshopState.totalCoins);
     const hpPercent = (gameState.tower.hp / gameState.tower.maxHp) * 100;
     hpBar.style.width = `${Math.max(0, hpPercent)}%`;
-    const wavePercent = (gameState.enemiesSlainThisWave / gameState.totalEnemiesThisWave) * 100;
-    waveProgress.style.width = `${wavePercent || 0}%`;
+    
+    const wavePercent = (gameState.currentPhaseDuration > 0) ? ((gameState.currentPhaseDuration - gameState.waveTimer) / gameState.currentPhaseDuration) * 100 : 0;
+    waveProgress.style.width = `${wavePercent}%`;
+    if (gameState.wavePhase === 'cooldown') {
+        waveProgress.classList.add('cooldown');
+        wavePhaseDisplay.textContent = `Cooldown: ${gameState.waveTimer.toFixed(1)}s`;
+    } else {
+        waveProgress.classList.remove('cooldown');
+        wavePhaseDisplay.textContent = `Spawning: ${gameState.waveTimer.toFixed(1)}s`;
+    }
+
     updateUpgradeButtons();
+    updateIngameStats();
 }
 
+function updateIngameStats() {
+    const { tower } = gameState;
+    const coinsPerKill = 1 + (workshopState.upgrades.utility['Coins/Kill'].level * workshopState.upgrades.utility['Coins/Kill'].baseEffect);
+    ingameStatsDisplay.innerHTML = `
+        <div>Dmg: ${tower.damage.toFixed(1)}</div>
+        <div>Spd: ${tower.attackSpeed.toFixed(2)}/s</div>
+        <div>Crit: ${(tower.critChance * 100).toFixed(1)}%</div>
+        <div>C/Kill: ${coinsPerKill.toFixed(2)}x</div>
+    `;
+}
+
+// WORKSHOP OVERHAUL: This function now creates two different types of UI elements.
 function generateUpgradeUI() {
     attackTab.innerHTML = '';
     defenseTab.innerHTML = '';
@@ -565,12 +721,20 @@ function generateUpgradeUI() {
     wsDefenseTab.innerHTML = '';
     wsUtilityTab.innerHTML = '';
 
-    const createUpgradeElement = (key, upgrade, type, category) => {
-        const isWorkshop = type === 'workshop';
-        const currentUpgrade = isWorkshop ? workshopUpgrades[key] : battleUpgrades[category][key];
-        const cost = currentUpgrade.cost;
-        const level = currentUpgrade.level;
-        const maxLevel = currentUpgrade.maxLevel || Infinity;
+    const createBattleUpgradeElement = (key, category) => {
+        const upgrade = battleUpgrades[category][key];
+        if (!upgrade) return '';
+
+        if (upgrade.unlock) {
+            const unlock = upgrade.unlock;
+            if (unlock.type === 'coinsSpent' && gameState.coinsSpent[unlock.category] < unlock.amount) return '';
+            if (unlock.type === 'level' && (!battleUpgrades[unlock.category][unlock.name] || battleUpgrades[unlock.category][unlock.name].level < unlock.level)) return '';
+            if (unlock.type === 'wave' && gameState.wave < unlock.amount) return '';
+        }
+
+        const cost = upgrade.cost;
+        const level = upgrade.level;
+        const maxLevel = upgrade.maxLevel || Infinity;
         
         return `
             <div class="flex flex-col p-2 bg-black/50 border border-green-900">
@@ -578,52 +742,90 @@ function generateUpgradeUI() {
                     <span>${key}</span>
                     <span>Lvl ${level}${maxLevel !== Infinity ? `/${maxLevel}` : ''}</span>
                 </div>
-                <button id="${type}-${key.replace(/[^a-zA-Z0-9]/g, '')}-btn" class="btn-crt w-full mt-1 text-lg" onclick="buyUpgrade('${type}', '${key}', '${category}')" ${level >= maxLevel ? 'disabled' : ''}>
+                <button 
+                    id="battle-${key.replace(/[^a-zA-Z0-9]/g, '')}-btn" 
+                    class="btn-crt w-full mt-1 text-lg"
+                    data-type="battle" data-key="${key}" data-category="${category}"
+                    ${level >= maxLevel ? 'disabled' : ''}
+                >
                     ${level >= maxLevel ? 'MAX' : `Cost: ${Math.ceil(cost)}`}
                 </button>
             </div>
         `;
     };
-    
-    Object.keys(battleUpgrades.attack).forEach(key => attackTab.innerHTML += createUpgradeElement(key, battleUpgrades.attack[key], 'battle', 'attack'));
-    Object.keys(battleUpgrades.defense).forEach(key => defenseTab.innerHTML += createUpgradeElement(key, battleUpgrades.defense[key], 'battle', 'defense'));
-    Object.keys(battleUpgrades.utility).forEach(key => utilityTab.innerHTML += createUpgradeElement(key, battleUpgrades.utility[key], 'battle', 'utility'));
 
-    const allWorkshopUpgrades = DEFAULT_UPGRADES.workshop;
-    Object.keys(allWorkshopUpgrades.attack).forEach(key => wsAttackTab.innerHTML += createUpgradeElement(key, allWorkshopUpgrades.attack[key], 'workshop', 'attack'));
-    Object.keys(allWorkshopUpgrades.defense).forEach(key => wsDefenseTab.innerHTML += createUpgradeElement(key, allWorkshopUpgrades.defense[key], 'workshop', 'defense'));
-    Object.keys(allWorkshopUpgrades.utility).forEach(key => wsUtilityTab.innerHTML += createUpgradeElement(key, allWorkshopUpgrades.utility[key], 'workshop', 'utility'));
+    const createWorkshopUpgradeElement = (key, category) => {
+        const upgrade = workshopState.upgrades[category][key];
+        if (!upgrade) return '';
+
+        const cost = upgrade.cost;
+        const level = upgrade.level;
+        const maxLevel = upgrade.maxLevel || Infinity;
+        const currentEffect = upgrade.formatEffect(upgrade.effect);
+        const nextEffect = (level < maxLevel) ? upgrade.formatEffect(upgrade.effect + upgrade.baseEffect) : 'MAX';
+
+        return `
+            <div class="workshop-upgrade-card flex flex-col text-left space-y-1">
+                <div class="flex justify-between items-baseline">
+                    <h4 class="text-2xl text-glow">${key}</h4>
+                    <span class="text-lg">Lvl ${level}${maxLevel !== Infinity ? ` / ${maxLevel}` : ''}</span>
+                </div>
+                <p class="text-base text-gray-400 h-10">${upgrade.description}</p>
+                <div class="text-lg">Current: <span class="stat-value">${currentEffect}</span></div>
+                <div class="text-lg">Next: <span class="stat-value">${nextEffect}</span></div>
+                <button 
+                    id="workshop-${key.replace(/[^a-zA-Z0-9]/g, '')}-btn" 
+                    class="btn-crt w-full mt-1 text-lg"
+                    data-type="workshop" data-key="${key}" data-category="${category}"
+                    ${level >= maxLevel ? 'disabled' : ''}
+                >
+                    ${level >= maxLevel ? 'MAX LEVEL' : `Upgrade: ${Math.ceil(cost)} 🪙`}
+                </button>
+            </div>
+        `;
+    };
+    
+    Object.keys(battleUpgrades.attack).forEach(key => attackTab.innerHTML += createBattleUpgradeElement(key, 'attack'));
+    Object.keys(battleUpgrades.defense).forEach(key => defenseTab.innerHTML += createBattleUpgradeElement(key, 'defense'));
+    Object.keys(battleUpgrades.utility).forEach(key => utilityTab.innerHTML += createBattleUpgradeElement(key, 'utility'));
+
+    Object.keys(workshopState.upgrades.attack).forEach(key => wsAttackTab.innerHTML += createWorkshopUpgradeElement(key, 'attack'));
+    Object.keys(workshopState.upgrades.defense).forEach(key => wsDefenseTab.innerHTML += createWorkshopUpgradeElement(key, 'defense'));
+    Object.keys(workshopState.upgrades.utility).forEach(key => wsUtilityTab.innerHTML += createWorkshopUpgradeElement(key, 'utility'));
+
+    document.querySelectorAll('#upgrade-tabs button, #workshop-content button').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const target = e.currentTarget;
+            buyUpgrade(target.dataset.type, target.dataset.key, target.dataset.category);
+        });
+    });
 }
 
 function updateUpgradeButtons() {
-    const updateButtonState = (key, upgrade, type, category) => {
-        const btn = document.getElementById(`${type}-${key.replace(/[^a-zA-Z0-9]/g, '')}-btn`);
-        if (!btn) return;
-
-        const isWorkshop = type === 'workshop';
-        const currentUpgrade = isWorkshop ? workshopUpgrades[key] : battleUpgrades[category][key];
-        const cost = currentUpgrade.cost;
-        const currency = isWorkshop ? workshopState.totalCoins : gameState.cash;
-        const level = currentUpgrade.level;
-        const maxLevel = currentUpgrade.maxLevel || Infinity;
-        
-        btn.disabled = currency < cost || level >= maxLevel;
-        if (level >= maxLevel) {
-            btn.innerHTML = 'MAX';
-        } else {
-            btn.innerHTML = `Cost: ${Math.ceil(cost)}`;
-        }
-    };
-
+    // This function now only needs to handle battle upgrades, as workshop buttons are part of the full UI regeneration.
     for(const category in battleUpgrades) {
-        Object.keys(battleUpgrades[category]).forEach(key => updateButtonState(key, battleUpgrades[category][key], 'battle', category));
+        for(const key in battleUpgrades[category]) {
+            const btn = document.getElementById(`battle-${key.replace(/[^a-zA-Z0-9]/g, '')}-btn`);
+            if (!btn) continue;
+
+            const upgrade = battleUpgrades[category][key];
+            const cost = upgrade.cost;
+            const level = upgrade.level;
+            const maxLevel = upgrade.maxLevel || Infinity;
+            
+            btn.disabled = gameState.cash < cost || level >= maxLevel;
+            if (level >= maxLevel) {
+                btn.innerHTML = 'MAX';
+            } else {
+                btn.innerHTML = `Cost: ${Math.ceil(cost)}`;
+            }
+        }
     }
-    Object.keys(workshopUpgrades).forEach(key => updateButtonState(key, workshopUpgrades[key], 'workshop', ''));
 }
 
 function buyUpgrade(type, key, category) {
     const isWorkshop = type === 'workshop';
-    const upgrade = isWorkshop ? workshopUpgrades[key] : battleUpgrades[category][key];
+    const upgrade = isWorkshop ? workshopState.upgrades[category][key] : battleUpgrades[category][key];
     const currency = isWorkshop ? 'totalCoins' : 'cash';
     const currencyState = isWorkshop ? workshopState : gameState;
     
@@ -636,18 +838,20 @@ function buyUpgrade(type, key, category) {
             setTimeout(() => btn.classList.remove('purchased'), 200);
         }
 
+        if(!isWorkshop) gameState.coinsSpent[category] += upgrade.cost;
         currencyState[currency] -= upgrade.cost;
+
         if(upgrade.costGrowth_taper && upgrade.level >= upgrade.taper_level) {
             upgrade.costGrowth = upgrade.costGrowth_taper;
         }
         upgrade.cost *= upgrade.costGrowth;
         upgrade.level++;
-        gameState.interest.wavesSinceUpgrade = 0;
         
         if (isWorkshop) {
             upgrade.effect += upgrade.baseEffect;
             saveWorkshopStats();
         } else {
+            gameState.interest.wavesSinceUpgrade = 0;
             let effect = upgrade.effect;
             if (upgrade.taper_level_effect && upgrade.level > upgrade.taper_level_effect) {
                 effect = upgrade.effect_taper;
@@ -659,56 +863,52 @@ function buyUpgrade(type, key, category) {
             switch(key) {
                 case 'Damage': gameState.tower.damage += effect; break;
                 case 'Attack Speed': 
-                    if (gameState.tower.attackSpeed < upgrade.maxStat) {
-                        gameState.tower.attackSpeed += effect; 
-                    }
+                    if (gameState.tower.attackSpeed < upgrade.maxStat) gameState.tower.attackSpeed += effect; 
                     break;
                 case 'Range': gameState.tower.range += effect; break;
                 case 'Crit Chance': gameState.tower.critChance += effect; break;
                 case 'Crit Factor': gameState.tower.critFactor += effect; break;
-                case 'Multishot Chance': gameState.tower.multishotChance += effect; break;
-                case 'Bounce Chance': gameState.tower.bounceChance += effect; break;
+                case 'Damage/Meter': gameState.tower.damagePerMeter = (gameState.tower.damagePerMeter || 0) + effect; break;
+                case 'Rapid Fire': gameState.tower.rapidFireChance += effect; break;
                 case 'Health':
                     gameState.tower.maxHp += effect;
                     gameState.tower.hp += effect;
                     break;
+                case 'Defense Absolute': gameState.tower.defenseAbsolute += effect; break;
                 case 'Defense %': gameState.tower.defensePercent += effect; break;
                 case 'Thorns': gameState.tower.thorns += effect; break;
-                case 'Knockback Chance': gameState.tower.knockbackChance += effect; break;
-                case 'Orbs':
-                    gameState.tower.orbs += effect;
-                    gameState.tower.activeOrbs = [];
-                    for (let i = 0; i < gameState.tower.orbs; i++) {
-                        gameState.tower.activeOrbs.push({ angle: (i / gameState.tower.orbs) * 2 * Math.PI, distance: 80 });
-                    }
-                    break;
-                case 'Shockwave Size':
-                    if (upgrade.level === 1) gameState.tower.shockwaveFreq = 0.2;
-                    gameState.tower.shockwaveSize += effect;
-                    break;
+                case 'Lifesteal': gameState.tower.lifesteal += effect; break;
             }
         }
     }
     
-    if(gameState.isRunning) updateUI();
-    generateUpgradeUI();
-    updateUpgradeButtons();
+    generateUpgradeUI(); // Regenerate UI to show new costs, levels, and effects
 }
 
-function nextWave() {
+// --- Game Flow (Waves, Game Over) ---
+
+function endWave() {
     gameState.wave++;
     gameState.interest.wavesSinceUpgrade++;
     if (gameState.interest.wavesSinceUpgrade >= 3) {
-        gameState.cash += Math.floor(gameState.cash * 0.02);
+        const interestUpgrade = battleUpgrades.utility['Interest'];
+        if(interestUpgrade.level > 0) {
+            gameState.cash += Math.floor(gameState.cash * interestUpgrade.effect * interestUpgrade.level);
+        }
     }
+
+    const cashPerWave = battleUpgrades.utility['Cash/Wave'];
+    gameState.cash += (cashPerWave.level > 0 ? cashPerWave.effect * cashPerWave.level : 0) + 5 + gameState.wave * 1.2;
+    
+    const coinsPerWave = battleUpgrades.utility['Coins/Wave'];
+    const coinBonus = (coinsPerWave.level > 0 ? coinsPerWave.effect * coinsPerWave.level : 0);
+    gameState.runCoins += coinBonus;
 
     if (gameState.wave % 10 === 0) {
         startIntermission();
     } else {
-        gameState.cash += 5 + gameState.wave * 1.2;
-        spawnWave();
+        startWave();
     }
-    updateUI();
 }
 
 function startIntermission() {
@@ -724,7 +924,7 @@ function startIntermission() {
             clearInterval(interval);
             intermissionOverlay.classList.add('hidden');
             gameState.isIntermission = false;
-            spawnWave();
+            startWave();
         }
     }, 1000);
 }
@@ -749,19 +949,26 @@ function gameOver() {
     workshopModal.classList.add('hidden');
 }
 
+// --- Update Logic for Game Objects ---
+
 function updateTower(deltaTime) {
     const { tower } = gameState;
-    const regenUpgrade = battleUpgrades.defense['Health Regen'];
+    const regenUpgrade = workshopState.upgrades.defense['Health Regen'];
     if (regenUpgrade.level > 0) {
-        tower.hp = Math.min(tower.maxHp, tower.hp + (regenUpgrade.effect * regenUpgrade.level * deltaTime));
+        tower.hp = Math.min(tower.maxHp, tower.hp + (regenUpgrade.effect * deltaTime));
     }
     
+    if (tower.rapidFireDuration > 0) {
+        tower.rapidFireDuration -= deltaTime;
+    }
+
     tower.attackCooldown -= deltaTime;
     if (tower.attackCooldown <= 0) {
         const target = findClosestEnemy();
         if (target) {
             fireProjectile(target);
-            tower.attackCooldown = 1 / tower.attackSpeed;
+            const speed = tower.rapidFireDuration > 0 ? tower.attackSpeed * 4 : tower.attackSpeed;
+            tower.attackCooldown = 1 / speed;
         }
     }
     
@@ -822,14 +1029,23 @@ function fireProjectile(target, isBounce = false) {
         projectileDamage *= tower.critFactor;
         isCrit = true;
     }
+
+    if (tower.damagePerMeter > 0) {
+        const dist = Math.sqrt((target.x - TOWER_POS.x)**2 + (target.y - TOWER_POS.y)**2);
+        projectileDamage += dist * tower.damagePerMeter;
+    }
+
+    if (!isBounce && Math.random() < tower.rapidFireChance) {
+        tower.rapidFireDuration = 3;
+    }
     
-    gameState.tower.projectiles.push({ x: TOWER_POS.x, y: TOWER_POS.y, target, speed: 400, damage: projectileDamage, isCrit, bounced: 0, trail: [] });
+    gameState.tower.projectiles.push({ x: TOWER_POS.x, y: TOWER_POS.y, target, speed: 600, damage: projectileDamage, isCrit, bounced: 0, trail: [] });
 
     if (!isBounce && Math.random() < tower.multishotChance) {
         for (let i = 0; i < tower.multishotTargets; i++) {
             const multiTarget = findClosestEnemy([target]);
             if (multiTarget) {
-                 gameState.tower.projectiles.push({ x: TOWER_POS.x, y: TOWER_POS.y, target: multiTarget, speed: 400, damage: projectileDamage / 2, isCrit: false, bounced: 0, trail: [] });
+                 gameState.tower.projectiles.push({ x: TOWER_POS.x, y: TOWER_POS.y, target: multiTarget, speed: 600, damage: projectileDamage / 2, isCrit: false, bounced: 0, trail: [] });
             }
         }
     }
@@ -841,7 +1057,7 @@ function updateProjectiles(deltaTime) {
         p.trail.push({x: p.x, y: p.y});
         if (p.trail.length > 5) p.trail.shift();
 
-        if (!p.target || p.target.hp <= 0) {
+        if (!p.target || p.target.hp <= 0 || !gameState.enemies.includes(p.target)) {
             gameState.tower.projectiles.splice(i, 1);
             continue;
         }
@@ -851,16 +1067,22 @@ function updateProjectiles(deltaTime) {
         const hitDist = (p.isCrit ? 6 : 4) + (p.target.size / 2);
 
         if (dist < hitDist) {
-            p.target.hp -= p.damage;
+            const damageDealt = Math.min(p.target.hp, p.damage);
+            p.target.hp -= damageDealt;
+            if (gameState.tower.lifesteal > 0) {
+                gameState.tower.hp = Math.min(gameState.tower.maxHp, gameState.tower.hp + damageDealt * gameState.tower.lifesteal);
+            }
             spawnParticles(p.x, p.y, p.isCrit ? 12 : 8);
             
-            if (Math.random() < gameState.tower.knockbackChance) {
+            if (Math.random() < gameState.tower.knockbackChance && p.target.type !== ENEMY_TYPES.RANGED) {
                 const knockbackDist = gameState.tower.knockbackForce * 100;
                 const enemyDx = p.target.x - TOWER_POS.x;
                 const enemyDy = p.target.y - TOWER_POS.y;
                 const enemyDist = Math.sqrt(enemyDx*enemyDx + enemyDy*enemyDy);
-                p.target.x += (enemyDx / enemyDist) * knockbackDist;
-                p.target.y += (enemyDy / enemyDist) * knockbackDist;
+                if (enemyDist > 0) {
+                    p.target.x += (enemyDx / enemyDist) * knockbackDist;
+                    p.target.y += (enemyDy / enemyDist) * knockbackDist;
+                }
             }
 
             const bounced = p.bounced < gameState.tower.bounceTargets && Math.random() < gameState.tower.bounceChance;
@@ -883,6 +1105,42 @@ function updateProjectiles(deltaTime) {
     }
 }
 
+function startWave() {
+    gameState.wavePhase = 'spawning';
+    gameState.waveTimer = GAME_CONFIG.WAVE_SPAWN_DURATION;
+    gameState.currentPhaseDuration = GAME_CONFIG.WAVE_SPAWN_DURATION;
+    spawnWave();
+}
+
+function updateWave(deltaTime) {
+    if (gameState.waveTimer > 0) {
+        gameState.waveTimer -= deltaTime;
+    }
+
+    if (gameState.waveTimer <= 0) {
+        if (gameState.wavePhase === 'spawning') {
+            gameState.wavePhase = 'cooldown';
+            clearSpawnTimeouts();
+
+            let cooldownDuration = (gameState.wave % 10 === 0) ? GAME_CONFIG.WAVE_COOLDOWN_BOSS : GAME_CONFIG.WAVE_COOLDOWN_NORMAL;
+            
+            const accelCard = cardState.collection['Wave Accelerator'];
+            if(accelCard && cardState.equipped.includes('Wave Accelerator')) {
+                cooldownDuration *= CARD_DATA['Wave Accelerator'].effect(accelCard.level);
+            }
+
+            const accelWorkshop = workshopState.upgrades.utility['Wave Accelerator'];
+            cooldownDuration *= (1 - accelWorkshop.effect);
+
+            gameState.waveTimer = cooldownDuration;
+            gameState.currentPhaseDuration = cooldownDuration;
+
+        } else if (gameState.wavePhase === 'cooldown') {
+            endWave();
+        }
+    }
+}
+
 function spawnWave() {
     const wave = gameState.wave;
     gameState.enemiesSlainThisWave = 0;
@@ -890,13 +1148,17 @@ function spawnWave() {
 
     if (wave > 0 && wave % 10 === 0) {
         gameState.totalEnemiesThisWave = 1;
-        spawnEnemy(wave, 'boss');
+        spawnEnemy(wave, ENEMY_TYPES.BOSS);
     } else {
-        const numEnemies = 5 + Math.floor(wave * 1.5);
+        const numEnemies = 5 + Math.floor(1.5 * wave);
         gameState.totalEnemiesThisWave = numEnemies;
-        const delay = Math.max(50, 400 - wave * 3);
+        const delay = Math.max(50, 400 - 3 * wave);
         for (let i = 0; i < numEnemies; i++) {
-            const timeoutId = setTimeout(() => spawnEnemy(wave), i * delay);
+            const timeoutId = setTimeout(() => {
+                if (gameState.wavePhase === 'spawning') {
+                    spawnEnemy(wave);
+                }
+            }, i * delay);
             spawnTimeouts.push(timeoutId);
         }
     }
@@ -904,6 +1166,47 @@ function spawnWave() {
 
 function spawnEnemy(wave, type = 'random') {
     if(!gameState.isRunning) return;
+    
+    let enemyType = type;
+    if (type === 'random') {
+        const roll = Math.random();
+        if (wave > 30 && roll > 0.8)         { enemyType = ENEMY_TYPES.ELITE_FAST; }
+        else if (wave > 15 && roll > 0.75)   { enemyType = ENEMY_TYPES.RANGED; }
+        else if (wave > 5 && roll > 0.7)     { enemyType = ENEMY_TYPES.TANK; }
+        else if (wave > 2 && roll > 0.5)     { enemyType = ENEMY_TYPES.FAST; }
+        else                                 { enemyType = ENEMY_TYPES.BASIC; }
+    }
+
+    const baseHp = 10 * Math.pow(1.06, wave - 1);
+    const baseDmg = 2 * Math.pow(1.04, wave - 1);
+    const baseSpeed = 30 * (1 + 0.005 * (wave - 1));
+
+    let hpMultiplier = 1, damageMultiplier = 1, speedMultiplier = 1;
+    let size = 15, color = '#ff8080', shape = SHAPES.SQUARE;
+
+    switch (enemyType) {
+        case ENEMY_TYPES.FAST:
+            hpMultiplier = 0.7; speedMultiplier = 1.8;
+            size = 12; color = '#fcc419'; shape = SHAPES.TRIANGLE;
+            break;
+        case ENEMY_TYPES.ELITE_FAST:
+            hpMultiplier = 1.5; speedMultiplier = 2.2;
+            size = 12; color = '#ffff00'; shape = SHAPES.TRIANGLE;
+            break;
+        case ENEMY_TYPES.TANK:
+            hpMultiplier = 5; speedMultiplier = 0.6;
+            size = 25; color = '#c92a2a'; shape = SHAPES.HEXAGON;
+            break;
+        case ENEMY_TYPES.RANGED:
+            damageMultiplier = 2;
+            size = 18; color = '#00ffff'; shape = SHAPES.DIAMOND;
+            break;
+        case ENEMY_TYPES.BOSS:
+            hpMultiplier = 20; damageMultiplier = 5; speedMultiplier = 0.3;
+            size = 40; color = '#ff00ff'; shape = SHAPES.CIRCLE;
+            break;
+    }
+
     const edge = Math.floor(Math.random() * 4);
     let x, y;
     const sizeVal = parseFloat(canvas.style.width);
@@ -912,39 +1215,15 @@ function spawnEnemy(wave, type = 'random') {
     else if (edge === 2) { x = Math.random() * sizeVal; y = 0; }
     else { x = Math.random() * sizeVal; y = sizeVal; }
 
-    let hpMultiplier = 1, speedMultiplier = 1, size = 15, color = '#ff8080', shape = 'square', damageMultiplier = 1;
-    
-    if (type === 'boss') {
-        hpMultiplier = 20; speedMultiplier = 0.3; size = 40; color = '#ff00ff'; shape = 'circle'; damageMultiplier = 5;
-    } else {
-        const enemyTypeRoll = Math.random();
-        if (wave > 30 && enemyTypeRoll > 0.8) { // Elite Fast
-             hpMultiplier = 1.5; speedMultiplier = 2.2; size = 12; color = '#ffff00'; shape = 'triangle';
-        }
-        else if (wave > 5 && enemyTypeRoll > 0.7) { 
-            hpMultiplier = 5; speedMultiplier = 0.6; size = 25; color = '#c92a2a'; shape = 'hexagon';
-        } 
-        else if (wave > 2 && enemyTypeRoll > 0.5) { 
-            hpMultiplier = 0.7; speedMultiplier = 1.8; size = 12; color = '#fcc419'; shape = 'triangle';
-        }
-    }
-    
-    const baseHp = 10 * Math.pow(1.06, wave - 1);
-    const baseDmg = 2 * Math.pow(1.04, wave - 1);
-    const speed = 30 * (1 + 0.005 * (wave - 1)) * speedMultiplier;
-
-    gameState.enemies.push({ x, y, hp: baseHp * hpMultiplier, maxHp: baseHp * hpMultiplier, damage: baseDmg * damageMultiplier, speed: speed, size, color, shape, orbHitCooldown: 0 });
-}
-
-function updateCombo(deltaTime) {
-    const { combo } = gameState;
-    combo.timer -= deltaTime;
-    if (combo.timer <= 0) {
-        combo.count = 0;
-        combo.multiplier = 1;
-        comboDisplay.style.opacity = '0';
-        comboDisplay.style.transform = 'translateX(-100%)';
-    }
+    const enemy = {
+        x, y, type: enemyType,
+        hp: baseHp * hpMultiplier, maxHp: baseHp * hpMultiplier,
+        damage: baseDmg * damageMultiplier, speed: baseSpeed * speedMultiplier,
+        size, color, shape, orbHitCooldown: 0,
+        attackCooldown: (enemyType === ENEMY_TYPES.RANGED) ? 3 : 0,
+        isCharging: false,
+    };
+    gameState.enemies.push(enemy);
 }
 
 function updateEnemies(deltaTime) {
@@ -955,67 +1234,88 @@ function updateEnemies(deltaTime) {
         }
 
         if (enemy.hp <= 0) {
-            const coinUpgrade = workshopUpgrades['Coins/Kill'];
-            const battleCoinUpgrade = battleUpgrades.utility['Coins/Kill Bonus'];
-            let coinsEarned = 1 + (coinUpgrade.level * coinUpgrade.baseEffect);
-            coinsEarned *= (1 + (battleCoinUpgrade.level * battleCoinUpgrade.effect));
-
-            gameState.runCoins += coinsEarned;
-            workshopState.totalCoins += coinsEarned;
-            
-            let baseCash = 1;
-            switch(enemy.shape) {
-                case 'triangle': baseCash = 2; break;
-                case 'hexagon': baseCash = 3; break;
+            let baseCash = 0;
+            switch(enemy.type) {
+                case ENEMY_TYPES.BASIC:      baseCash = 1; break;
+                case ENEMY_TYPES.FAST:       baseCash = 2; break;
+                case ENEMY_TYPES.ELITE_FAST: baseCash = 2; break;
+                case ENEMY_TYPES.TANK:       baseCash = 3; break;
+                case ENEMY_TYPES.RANGED:     baseCash = 4; break;
+                case ENEMY_TYPES.BOSS:       baseCash = 5; break;
             }
-            const waveTier = Math.floor((gameState.wave - 1) / 10);
-            const cashMultiplier = Math.pow(2, waveTier);
-            let cashEarned = baseCash * cashMultiplier;
             
-            gameState.combo.count++;
-            gameState.combo.timer = 2; // 2 seconds to continue combo
-            if (gameState.combo.count >= 20) gameState.combo.multiplier = 2;
-            else if (gameState.combo.count >= 10) gameState.combo.multiplier = 1.5;
-            else if (gameState.combo.count >= 5) gameState.combo.multiplier = 1.2;
-            cashEarned *= gameState.combo.multiplier;
-            comboDisplay.textContent = `COMBO x${gameState.combo.multiplier.toFixed(1)}`;
-            comboDisplay.style.opacity = '1';
-            comboDisplay.style.transform = 'translateX(0)';
-
+            let cashEarned = baseCash;
+            const cashCard = cardState.collection['Cash'];
+            if(cashCard && cardState.equipped.includes('Cash')) {
+                cashEarned *= CARD_DATA['Cash'].effect(cashCard.level);
+            }
+            const cashKillUpgrade = battleUpgrades.utility['Cash/Kill'];
+            cashEarned *= (1 + cashKillUpgrade.level * cashKillUpgrade.effect);
             gameState.cash += cashEarned;
 
-            if (enemy.shape === 'circle') { // Boss kill
+            const coinUpgrade = workshopState.upgrades.utility['Coins/Kill'];
+            const battleCoinUpgrade = battleUpgrades.utility['Coins/Kill'];
+            let coinsEarned = (1 + (coinUpgrade.level * coinUpgrade.baseEffect)) * (1 + (battleCoinUpgrade.level * battleCoinUpgrade.effect));
+            const coinsCard = cardState.collection['Coins'];
+            if(coinsCard && cardState.equipped.includes('Coins')) {
+                coinsEarned *= CARD_DATA['Coins'].effect(coinsCard.level);
+            }
+            gameState.runCoins += coinsEarned;
+
+            if (enemy.type === ENEMY_TYPES.BOSS) {
                 gameState.gems++;
             }
 
             gameState.enemies.splice(i, 1);
             gameState.enemiesSlainThisWave++;
-            updateUI();
             continue;
         }
+        
         const dx = TOWER_POS.x - enemy.x;
         const dy = TOWER_POS.y - enemy.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 25) {
-            let enemyDamage = enemy.damage * (1 - gameState.tower.defensePercent);
-            gameState.tower.hp -= Math.max(0, enemyDamage);
-            enemy.hp -= gameState.tower.thorns;
-            if (enemy.hp <= 0) {
-                // Handled in next loop iteration
+
+        if (enemy.type === ENEMY_TYPES.RANGED) {
+            if (enemy.isCharging) {
+                enemy.attackCooldown -= deltaTime;
+                if (enemy.attackCooldown <= 0) {
+                    let enemyDamage = enemy.damage * (1 - gameState.tower.defensePercent) - gameState.tower.defenseAbsolute;
+                    gameState.tower.hp -= Math.max(0, enemyDamage);
+                    visualEffects.push({ type: 'laser', fromX: enemy.x, fromY: enemy.y, toX: TOWER_POS.x, toY: TOWER_POS.y, life: 0.2 });
+                    enemy.isCharging = false;
+                }
             } else {
-                 gameState.enemies.splice(i, 1);
-                 gameState.enemiesSlainThisWave++;
+                if (dist > gameState.tower.range * 0.8) {
+                    enemy.x += (dx / dist) * enemy.speed * deltaTime;
+                    enemy.y += (dy / dist) * enemy.speed * deltaTime;
+                } else {
+                    enemy.isCharging = true;
+                    enemy.attackCooldown = 3.0; 
+                }
             }
-            updateUI();
-            continue;
+        } else { // Melee enemies
+            const collisionDistance = enemy.size / 2 + 15; 
+            if (dist < collisionDistance) {
+                let enemyDamage = enemy.damage * (1 - gameState.tower.defensePercent) - gameState.tower.defenseAbsolute;
+                gameState.tower.hp -= Math.max(0, enemyDamage);
+                
+                gameState.enemies.splice(i, 1);
+                gameState.enemiesSlainThisWave++;
+                continue;
+            }
+            enemy.x += (dx / dist) * enemy.speed * deltaTime;
+            enemy.y += (dy / dist) * enemy.speed * deltaTime;
         }
-        enemy.x += (dx / dist) * enemy.speed * deltaTime;
-        enemy.y += (dy / dist) * enemy.speed * deltaTime;
     }
 }
 
+// --- Particle System ---
+
 function spawnParticles(x, y, count) {
     for (let i = 0; i < count; i++) {
+        if (particles.length >= GAME_CONFIG.PARTICLE_CAP) {
+            particles.shift();
+        }
         const angle = Math.random() * Math.PI * 2;
         const speed = Math.random() * 50 + 20;
         particles.push({
@@ -1034,7 +1334,7 @@ function updateParticles(deltaTime) {
         const p = particles[i];
         p.x += p.vx * deltaTime;
         p.y += p.vy * deltaTime;
-        p.vx *= 0.95; // friction
+        p.vx *= 0.95;
         p.vy *= 0.95;
         p.life -= deltaTime;
         if (p.life <= 0) {
@@ -1042,6 +1342,18 @@ function updateParticles(deltaTime) {
         }
     }
 }
+
+function updateVisualEffects(deltaTime) {
+    for (let i = visualEffects.length - 1; i >= 0; i--) {
+        const effect = visualEffects[i];
+        effect.life -= deltaTime;
+        if (effect.life <= 0) {
+            visualEffects.splice(i, 1);
+        }
+    }
+}
+
+// --- Canvas Drawing Functions ---
 
 function drawPolygon(x, y, radius, sides, startAngle = 0) {
     if (sides < 3) return;
@@ -1068,12 +1380,23 @@ function drawEnemies() {
         ctx.fillStyle = enemy.color;
         
         switch(enemy.shape) {
-            case 'circle': ctx.beginPath(); ctx.arc(enemy.x, enemy.y, enemy.size / 2, 0, Math.PI * 2); break;
-            case 'triangle': drawPolygon(enemy.x, enemy.y, enemy.size / 1.5, 3, -Math.PI / 2); break;
-            case 'hexagon': drawPolygon(enemy.x, enemy.y, enemy.size / 2, 6); break;
+            case SHAPES.CIRCLE: ctx.beginPath(); ctx.arc(enemy.x, enemy.y, enemy.size / 2, 0, Math.PI * 2); break;
+            case SHAPES.TRIANGLE: drawPolygon(enemy.x, enemy.y, enemy.size / 1.5, 3, -Math.PI / 2); break;
+            case SHAPES.HEXAGON: drawPolygon(enemy.x, enemy.y, enemy.size / 2, 6); break;
+            case SHAPES.DIAMOND: drawPolygon(enemy.x, enemy.y, enemy.size / 2, 4, Math.PI / 4); break;
             default: ctx.beginPath(); ctx.rect(enemy.x - enemy.size / 2, enemy.y - enemy.size / 2, enemy.size, enemy.size); break;
         }
         ctx.fill();
+
+        if (enemy.isCharging) {
+            const chargeRatio = 1 - (enemy.attackCooldown / 3.0);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.beginPath();
+            ctx.arc(enemy.x, enemy.y, enemy.size, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * chargeRatio));
+            ctx.lineTo(enemy.x, enemy.y);
+            ctx.closePath();
+            ctx.fill();
+        }
 
         if (enemy.hp < enemy.maxHp) {
             const barWidth = enemy.size; const barHeight = 5; const yOffset = enemy.size / 2 + 5;
@@ -1085,7 +1408,6 @@ function drawEnemies() {
 function drawProjectiles() { 
     for (const p of gameState.tower.projectiles) {
         const radius = p.isCrit ? 6 : 4;
-        // Draw trail
         p.trail.forEach((pos, index) => {
             const alpha = (index + 1) / p.trail.length * 0.5;
             ctx.fillStyle = `rgba(240, 255, 77, ${alpha})`;
@@ -1094,7 +1416,6 @@ function drawProjectiles() {
             ctx.fill();
         });
 
-        // Draw main projectile with gradient
         const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius);
         grad.addColorStop(0, p.isCrit ? '#ff4d4d' : '#f0ff4d');
         grad.addColorStop(1, 'rgba(0,0,0,0)');
@@ -1120,7 +1441,7 @@ function drawOrbs(deltaTime) {
                 const dy = enemy.y - y;
                 if (dx*dx + dy*dy < (enemy.size/2 + 8)**2) {
                     enemy.hp -= tower.damage * 0.1;
-                    enemy.orbHitCooldown = 0.5; // 0.5 second cooldown
+                    enemy.orbHitCooldown = 0.5;
                 }
             }
         });
@@ -1152,19 +1473,44 @@ function drawParticles() {
         ctx.fill();
     }
 }
+function drawVisualEffects() {
+    for (const effect of visualEffects) {
+        if (effect.type === 'laser') {
+            ctx.strokeStyle = `rgba(0, 255, 255, ${effect.life / 0.2})`;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(effect.fromX, effect.fromY);
+            ctx.lineTo(effect.toX, effect.toY);
+            ctx.stroke();
+            ctx.lineWidth = 1;
+        }
+    }
+}
+
+// --- Screen and UI Management ---
 
 function showTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
     document.getElementById(`${tabName}-tab`).classList.remove('hidden');
-    document.querySelectorAll('#bottom-panel .tab-btn').forEach(btn => btn.classList.remove('tab-active'));
-    document.querySelector(`#bottom-panel button[onclick="showTab('${tabName}')"]`).classList.add('tab-active');
+    document.querySelectorAll('#bottom-panel .tab-btn').forEach(btn => {
+        btn.setAttribute('aria-selected', 'false');
+        btn.classList.remove('tab-active');
+    });
+    const activeBtn = document.querySelector(`#tab-${tabName}`);
+    activeBtn.setAttribute('aria-selected', 'true');
+    activeBtn.classList.add('tab-active');
 }
 
 function showWorkshopTab(tabName) {
     document.querySelectorAll('.workshop-tab-content').forEach(tab => tab.classList.add('hidden'));
     document.getElementById(`${tabName}-tab`).classList.remove('hidden');
-    document.querySelectorAll('#workshop-modal .tab-btn').forEach(btn => btn.classList.remove('tab-active'));
-    document.querySelector(`#workshop-modal button[onclick="showWorkshopTab('${tabName}')"]`).classList.add('tab-active');
+    document.querySelectorAll('#workshop-modal .tab-btn').forEach(btn => {
+        btn.setAttribute('aria-selected', 'false');
+        btn.classList.remove('tab-active');
+    });
+    const activeBtn = document.querySelector(`#ws-tab-${tabName.split('-')[1]}`);
+    activeBtn.setAttribute('aria-selected', 'true');
+    activeBtn.classList.add('tab-active');
 }
 
 function showMainMenuScreen() {
@@ -1172,6 +1518,7 @@ function showMainMenuScreen() {
     gameUiWrapper.classList.add('hidden');
     gameOverModal.classList.add('hidden');
     workshopModal.classList.add('hidden');
+    cardsModal.classList.add('hidden');
 }
 
 function showGameScreen() {
@@ -1179,16 +1526,93 @@ function showGameScreen() {
     gameUiWrapper.classList.remove('hidden');
     gameOverModal.classList.add('hidden');
     workshopModal.classList.add('hidden');
+    cardsModal.classList.add('hidden');
     setupGame();
 }
 
 function showWorkshopScreen() {
     workshopCoinsDisplay.textContent = Math.floor(workshopState.totalCoins);
     generateUpgradeUI();
-    updateUpgradeButtons();
     workshopModal.classList.remove('hidden');
     mainMenu.classList.add('hidden');
     gameOverModal.classList.add('hidden');
+}
+
+function showCardsScreen() {
+    cardGemsDisplay.textContent = workshopState.gems;
+    updateCardsUI();
+    cardsModal.classList.remove('hidden');
+    mainMenu.classList.add('hidden');
+}
+
+function updateCardsUI() {
+    cardSlotsContainer.innerHTML = '';
+    for(let i = 0; i < cardState.slots; i++) {
+        const cardName = cardState.equipped[i];
+        const slotEl = document.createElement('div');
+        slotEl.className = 'card-slot h-24 flex items-center justify-center text-center p-2';
+        if (cardName) {
+            const card = cardState.collection[cardName];
+            slotEl.innerHTML = `<div class="text-lg">${cardName}</div><div class="text-sm">Lvl ${card.level}</div>`;
+            slotEl.onclick = () => unequipCard(cardName);
+        } else {
+            slotEl.innerHTML = `Empty`;
+        }
+        cardSlotsContainer.appendChild(slotEl);
+    }
+
+    cardCollectionContainer.innerHTML = '';
+    for (const cardName in cardState.collection) {
+        const card = cardState.collection[cardName];
+        const cardEl = document.createElement('div');
+        cardEl.className = `card h-24 flex flex-col items-center justify-center text-center p-2 ${cardState.equipped.includes(cardName) ? 'equipped' : ''}`;
+        cardEl.innerHTML = `<div class="text-lg">${cardName}</div><div class="text-sm">Lvl ${card.level}</div>`;
+        cardEl.onclick = () => toggleCardEquip(cardName);
+        cardCollectionContainer.appendChild(cardEl);
+    }
+    equippedCardsCount.textContent = cardState.equipped.length;
+    maxCardSlots.textContent = cardState.slots;
+}
+
+function toggleCardEquip(cardName) {
+    const isEquipped = cardState.equipped.includes(cardName);
+    if (isEquipped) {
+        unequipCard(cardName);
+    } else {
+        equipCard(cardName);
+    }
+}
+
+function equipCard(cardName) {
+    if (cardState.equipped.length < cardState.slots) {
+        cardState.equipped.push(cardName);
+        saveCardState();
+        updateCardsUI();
+    }
+}
+
+function unequipCard(cardName) {
+    cardState.equipped = cardState.equipped.filter(c => c !== cardName);
+    saveCardState();
+    updateCardsUI();
+}
+
+function buyCard() {
+    if (workshopState.gems >= 20) {
+        workshopState.gems -= 20;
+        const cardNames = Object.keys(CARD_DATA);
+        const randomCard = cardNames[Math.floor(Math.random() * cardNames.length)];
+        if (cardState.collection[randomCard]) {
+            if(cardState.collection[randomCard].level < CARD_DATA[randomCard].maxLevel) {
+                 cardState.collection[randomCard].level++;
+            }
+        } else {
+            cardState.collection[randomCard] = { level: 1 };
+        }
+        saveCardState();
+        saveWorkshopStats();
+        showCardsScreen();
+    }
 }
 
 function setGameSpeed(speed) {
@@ -1200,61 +1624,81 @@ function setGameSpeed(speed) {
     else if (speed === 4) speed4xBtn.classList.add('speed-btn-active');
 }
 
-// Event Listeners
-startGameBtn.addEventListener('click', showGameScreen);
-workshopBtn.addEventListener('click', showWorkshopScreen);
-closeWorkshopBtn.addEventListener('click', () => {
-    workshopModal.classList.add('hidden');
-    if (gameState.isRunning && gameState.tower.hp > 0) {
-        gameUiWrapper.classList.remove('hidden');
-    } else if (gameOverModal.classList.contains('hidden')) {
+// --- Initialization ---
+
+function initializeEventListeners() {
+    startGameBtn.addEventListener('click', showGameScreen);
+    workshopBtn.addEventListener('click', showWorkshopScreen);
+    cardsBtn.addEventListener('click', showCardsScreen);
+    closeWorkshopBtn.addEventListener('click', () => {
+        workshopModal.classList.add('hidden');
         showMainMenuScreen();
-    } else {
-        gameOverModal.classList.remove('hidden');
-    }
-});
-restartBtn.addEventListener('click', showGameScreen);
-workshopFromGameOverBtn.addEventListener('click', () => {
-    gameOverModal.classList.add('hidden');
-    showWorkshopScreen();
-});
-mainMenuBtn.addEventListener('click', showMainMenuScreen);
+    });
+    closeCardsBtn.addEventListener('click', () => {
+        cardsModal.classList.add('hidden');
+        showMainMenuScreen();
+    });
+    buyCardBtn.addEventListener('click', buyCard);
+    restartBtn.addEventListener('click', showGameScreen);
+    workshopFromGameOverBtn.addEventListener('click', () => {
+        gameOverModal.classList.add('hidden');
+        showWorkshopScreen();
+    });
+    mainMenuBtn.addEventListener('click', showMainMenuScreen);
 
-pauseBtn.addEventListener('click', () => {
-    gameState.isPaused = !gameState.isPaused;
-    if (gameState.isPaused) {
-        [speed1xBtn, speed2xBtn, speed4xBtn].forEach(btn => btn.classList.remove('speed-btn-active'));
-        pauseBtn.classList.add('speed-btn-active');
-    } else {
-        pauseBtn.classList.remove('speed-btn-active');
-        setGameSpeed(gameState.gameSpeed || 1);
-    }
-});
-speed1xBtn.addEventListener('click', () => setGameSpeed(1));
-speed2xBtn.addEventListener('click', () => setGameSpeed(2));
-speed4xBtn.addEventListener('click', () => setGameSpeed(4));
-toggleCrtBtn.addEventListener('click', () => {
-    screenContainer.classList.toggle('crt-effect');
-    toggleCrtBtn.textContent = screenContainer.classList.contains('crt-effect') ? 'CRT: ON' : 'CRT: OFF';
-});
+    pauseBtn.addEventListener('click', () => {
+        gameState.isPaused = !gameState.isPaused;
+        if (gameState.isPaused) {
+            [speed1xBtn, speed2xBtn, speed4xBtn].forEach(btn => btn.classList.remove('speed-btn-active'));
+            pauseBtn.classList.add('speed-btn-active');
+        } else {
+            pauseBtn.classList.remove('speed-btn-active');
+            setGameSpeed(gameState.gameSpeed || 1);
+        }
+    });
+    speed1xBtn.addEventListener('click', () => setGameSpeed(1));
+    speed2xBtn.addEventListener('click', () => setGameSpeed(2));
+    speed4xBtn.addEventListener('click', () => setGameSpeed(4));
+    toggleCrtBtn.addEventListener('click', () => {
+        screenContainer.classList.toggle('crt-effect');
+        toggleCrtBtn.textContent = screenContainer.classList.contains('crt-effect') ? 'CRT: ON' : 'CRT: OFF';
+    });
+    
+    document.getElementById('tab-attack').addEventListener('click', () => showTab('attack'));
+    document.getElementById('tab-defense').addEventListener('click', () => showTab('defense'));
+    document.getElementById('tab-utility').addEventListener('click', () => showTab('utility'));
+    
+    document.getElementById('ws-tab-attack').addEventListener('click', () => showWorkshopTab('ws-attack'));
+    document.getElementById('ws-tab-defense').addEventListener('click', () => showWorkshopTab('ws-defense'));
+    document.getElementById('ws-tab-utility').addEventListener('click', () => showWorkshopTab('ws-utility'));
 
-window.addEventListener('keydown', (e) => {
-    if (gameUiWrapper.classList.contains('hidden')) return;
-    switch(e.key) {
-        case '1': showTab('attack'); break;
-        case '2': showTab('defense'); break;
-        case '3': showTab('utility'); break;
-        case 'u': case 'U': showWorkshopScreen(); break;
-    }
-});
+    window.addEventListener('keydown', (e) => {
+        if (gameUiWrapper.classList.contains('hidden')) return;
+        switch(e.key) {
+            case '1': showTab('attack'); break;
+            case '2': showTab('defense'); break;
+            case '3': showTab('utility'); break;
+            case 'u': case 'U': 
+                if (workshopModal.classList.contains('hidden')) {
+                    showWorkshopScreen();
+                } else {
+                    workshopModal.classList.add('hidden');
+                }
+                break;
+        }
+    });
 
+    window.addEventListener('resize', resizeCanvas);
+}
 
 window.addEventListener('load', () => {
-    loadWorkshopStats();
+    workshopState = loadWorkshopStats();
     loadHighScore();
+    loadCardState();
     showMainMenuScreen();
+    resizeCanvas();
+    initializeEventListeners();
 });
-window.addEventListener('resize', resizeCanvas);
 
 </script>
 </body>

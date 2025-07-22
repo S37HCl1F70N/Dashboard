@@ -204,6 +204,9 @@
         let ship, activeAsteroids, activeBullets, activeParticles, activePowerUps;
         let score = 0, lives = 3, level = 1;
         let keys = {}, highScores = [];
+        let fireCooldown = 0; // seconds
+        const FIRE_RATE = 0.18; // seconds between shots (classic Asteroids is ~0.2s)
+        let firePressed = false; // track if fire button is held
         
         const SHIP_SIZE = 15, SHIP_THRUST = 5, SHIP_TURN_SPEED = 4, FRICTION = 0.99;
         const BULLET_SPEED = 420, BULLET_MAX = 50, ASTEROID_NUM_START = 3, ASTEROID_BASE_SPEED = 60, ASTEROID_VERTICES = 10;
@@ -211,39 +214,137 @@
         const POWERUP_DROP_CHANCE = 0.15, POWERUP_DURATION = 10, POWERUP_LIFESPAN = 15;
         const POWERUP_TYPES = ['tripleshot', 'piercing', 'shield', 'laser'];
         
-        // --- SOUND MANAGER ---
+        // --- SOUND MANAGER (Asteroids-accurate) ---
         const soundManager = {
             synths: {},
             isInitialized: false,
+            heartbeatTimer: 0,
+            heartbeatInterval: 0.5, // seconds, will decrease as level increases
+            heartbeatOsc: 0,
+            thrustActive: false,
+            thrustLoop: null,
             init() {
                 if (this.isInitialized) return;
                 Tone.start();
-                this.synths.shoot = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle8' }, envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 1 }, volume: -10 }).toDestination();
-                this.synths.explosion = new Tone.MetalSynth({ frequency: 150, envelope: { attack: 0.001, decay: 0.4, release: 0.2 }, harmonicity: 5.1, modulationIndex: 32, resonance: 3000, octaves: 1.5, volume: -10 }).toDestination();
-                this.synths.powerup = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.5 }, volume: -5 }).toDestination();
-                this.synths.thrust = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.05, decay: 0.1, sustain: 1 }, volume: -25 }).toDestination();
-                this.synths.laser = new Tone.NoiseSynth({ noise: { type: 'pink' }, envelope: { attack: 0.1, decay: 0, sustain: 1 }, volume: -20 }).toDestination();
-                const filter = new Tone.AutoFilter("4n").toDestination().start();
-                this.synths.laser.connect(filter);
+                // Heartbeat: two alternating low thump oscillators
+                this.synths.heartbeat1 = new Tone.MembraneSynth({ pitchDecay: 0.01, octaves: 1, oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.15, sustain: 0, release: 0.01 }, volume: -8 }).toDestination();
+                this.synths.heartbeat2 = new Tone.MembraneSynth({ pitchDecay: 0.01, octaves: 1, oscillator: { type: 'sine' }, envelope: { attack: 0.001, decay: 0.15, sustain: 0, release: 0.01 }, volume: -8 }).toDestination();
+                // Shoot: triangle wave, short, classic 'pew'
+                this.synths.shoot = new Tone.Synth({ oscillator: { type: 'triangle' }, envelope: { attack: 0.001, decay: 0.07, sustain: 0, release: 0.01 }, volume: -6 }).toDestination();
+                // Explosion: white noise burst
+                this.synths.explosion = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.25, sustain: 0, release: 0.01 }, volume: -8 }).toDestination();
+                // Thrust: filtered white noise, looped while thrusting
+                this.synths.thrust = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.01, decay: 0.05, sustain: 1, release: 0.05 }, volume: -18 }).toDestination();
+                this.synths.thrustFilter = new Tone.Filter(800, 'lowpass').toDestination();
+                this.synths.thrust.connect(this.synths.thrustFilter);
+                // Powerup: simple beep
+                this.synths.powerup = new Tone.Synth({ oscillator: { type: 'square' }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.1 }, volume: -10 }).toDestination();
                 this.isInitialized = true;
             },
-            play(type, ...args) {
+            play(type) {
                 if (!this.isInitialized) return;
                 switch(type) {
-                    case 'shoot': this.synths.shoot.triggerAttackRelease('C5', '8n'); break;
-                    case 'explode_small': this.synths.explosion.triggerAttackRelease('C3', '8n', Tone.now(), 0.5); break;
-                    case 'explode_large': this.synths.explosion.frequency.value = 80; this.synths.explosion.triggerAttackRelease('C2', '4n'); break;
-                    case 'powerup_collect': this.synths.powerup.triggerAttackRelease('G5', '8n'); break;
+                    case 'shoot':
+                        this.synths.shoot.triggerAttackRelease('C6', 0.07);
+                        break;
+                    case 'explode_small':
+                        this.synths.explosion.triggerAttackRelease('8n');
+                        break;
+                    case 'explode_large':
+                        // Enhanced explosion: deep membrane, filtered noise tail, detuned synth, and click
+                        // 1. Deep membrane thump (body of explosion)
+                        if (!this.synths.crash) {
+                            this.synths.crash = new Tone.MembraneSynth({
+                                pitchDecay: 0.5,
+                                octaves: 4,
+                                oscillator: { type: 'sine' },
+                                envelope: { attack: 0.001, decay: 1.1, sustain: 0, release: 0.05 },
+                                volume: 0
+                            }).toDestination();
+                        }
+                        this.synths.crash.triggerAttackRelease('C0', 0.7);
+
+                        // 2. Filtered noise tail (rumble)
+                        if (!this.synths.explosionRumble) {
+                            this.synths.explosionRumble = new Tone.NoiseSynth({
+                                noise: { type: 'white' },
+                                envelope: { attack: 0.001, decay: 0.7, sustain: 0, release: 0.1 },
+                                volume: -4
+                            });
+                            this.synths.explosionRumbleFilter = new Tone.Filter({
+                                type: 'lowpass',
+                                frequency: 350,
+                                Q: 1
+                            }).toDestination();
+                            this.synths.explosionRumble.connect(this.synths.explosionRumbleFilter);
+                        }
+                        this.synths.explosionRumbleFilter.frequency.rampTo(120, 0.5); // pitch drop
+                        this.synths.explosionRumble.triggerAttackRelease('8n');
+
+                        // 3. Detuned sawtooth for extra boom
+                        if (!this.synths.boomBody) {
+                            this.synths.boomBody = new Tone.Synth({
+                                oscillator: { type: 'sawtooth', detune: -18 },
+                                envelope: { attack: 0.001, decay: 0.25, sustain: 0, release: 0.01 },
+                                volume: -6
+                            }).toDestination();
+                        }
+                        this.synths.boomBody.triggerAttackRelease('C1', 0.18);
+
+                        // 4. Short, loud noise burst (crack)
+                        if (!this.synths.boom) {
+                            this.synths.boom = new Tone.NoiseSynth({
+                                noise: { type: 'white' },
+                                envelope: { attack: 0.001, decay: 0.18, sustain: 0, release: 0.01 },
+                                volume: -2
+                            }).toDestination();
+                        }
+                        this.synths.boom.triggerAttackRelease('16n');
+
+                        // 5. Sharp click (for initial impact)
+                        if (!this.synths.click) {
+                            this.synths.click = new Tone.MetalSynth({
+                                frequency: 400,
+                                envelope: { attack: 0.001, decay: 0.08, release: 0.01 },
+                                harmonicity: 8,
+                                modulationIndex: 32,
+                                resonance: 4000,
+                                octaves: 1.5,
+                                volume: -8
+                            }).toDestination();
+                        }
+                        this.synths.click.triggerAttackRelease('C4', '32n');
+                        break;
+                    case 'powerup_collect':
+                        this.synths.powerup.triggerAttackRelease('C7', 0.15);
+                        break;
                 }
             },
             toggleLoop(type, start) {
                 if (!this.isInitialized) return;
-                const synth = this.synths[type];
-                if (start && synth.envelope.value !== 'attack') {
-                    synth.triggerAttack();
-                } else if (!start && synth.envelope.value !== 'release') {
-                    synth.triggerRelease();
+                if (type === 'thrust') {
+                    if (start && !this.thrustActive) {
+                        this.thrustActive = true;
+                        this.synths.thrust.triggerAttack();
+                    } else if (!start && this.thrustActive) {
+                        this.thrustActive = false;
+                        this.synths.thrust.triggerRelease();
+                    }
                 }
+            },
+            heartbeatTick(level) {
+                // Lower interval as level increases, min 0.18s
+                this.heartbeatInterval = Math.max(0.18, 0.5 - (level-1)*0.03);
+                if (this.heartbeatOsc === 0) {
+                    this.synths.heartbeat1.triggerAttackRelease('C2', 0.09);
+                } else {
+                    this.synths.heartbeat2.triggerAttackRelease('G1', 0.09);
+                }
+                this.heartbeatOsc = 1 - this.heartbeatOsc;
+            },
+            resetHeartbeat() {
+                this.heartbeatTimer = 0;
+                this.heartbeatOsc = 0;
             }
         };
         
@@ -455,6 +556,9 @@
         function setGameState(newState) {
             gameState = newState;
             messageOverlay.classList.remove('active');
+            // Always stop thrust and laser when leaving PLAYING
+            soundManager.toggleLoop('thrust', false);
+            soundManager.toggleLoop('laser', false);
             if (newState === GAME_STATE.MENU) {
                 loadHighScores();
                 let scoreListHTML = highScores.map((s, i) => `<li><span class="score-rank">${i+1}.</span> <span class="score-name">${s.name}</span> <span class="score-value">${s.score}</span></li>`).join('');
@@ -475,8 +579,7 @@
             } else if (newState === GAME_STATE.PAUSED) {
                 messageOverlay.innerHTML = `<h1>PAUSED</h1>`;
                 messageOverlay.classList.add('active');
-                soundManager.toggleLoop('thrust', false);
-                soundManager.toggleLoop('laser', false);
+                // Already stopped thrust/laser above
             }
         }
         
@@ -512,13 +615,22 @@
             if (!lastTime) lastTime = timestamp;
             const delta = Math.min(0.1, (timestamp - lastTime) / 1000); // Prevent large delta spikes
             lastTime = timestamp;
-            
+            // Update fire cooldown
+            if (fireCooldown > 0) fireCooldown -= delta;
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             const { width, height } = bezel.getBoundingClientRect();
 
             if (gameState === GAME_STATE.MENU || gameState === GAME_STATE.GAMEOVER) {
                 activeAsteroids.forEach(a => { a.update(delta); a.draw(); });
             } else if (gameState === GAME_STATE.PLAYING) {
+                // --- ASTEROIDS HEARTBEAT ---
+                soundManager.heartbeatTimer -= delta;
+                if (soundManager.heartbeatTimer <= 0) {
+                    soundManager.heartbeatTick(level);
+                    soundManager.heartbeatTimer = soundManager.heartbeatInterval;
+                }
+
                 // UPDATE
                 ship.isThrusting = keys['ArrowUp'];
                 ship.rotation = 0;
@@ -531,7 +643,7 @@
                 activeAsteroids.forEach(a => a.update(delta));
                 activeParticles.forEach(p => p.update(delta));
                 activePowerUps.forEach(p => p.update(delta));
-                
+
                 // COLLISIONS
                 // Asteroid-Bullet/Laser
                 for (const asteroid of activeAsteroids) {
@@ -562,8 +674,10 @@
                             if (!asteroid.active) continue;
                             if (distSq(ship.x, ship.y, asteroid.x, asteroid.y) < (ship.radius + asteroid.radius) ** 2) {
                                 createExplosion(ship.x, ship.y, SECONDARY_GLOW, 30); soundManager.play('explode_large');
+                                // Stop thrust sound on death
+                                soundManager.toggleLoop('thrust', false);
                                 updateLives(-1);
-                                if (lives > 0) { ship.reset(); } 
+                                if (lives > 0) { ship.reset(); soundManager.resetHeartbeat(); } 
                                 else { isHighScore(score) ? setGameState(GAME_STATE.HIGHSCORE_ENTRY) : setGameState(GAME_STATE.GAMEOVER); }
                                 break;
                             }
@@ -593,15 +707,16 @@
                 cleanup(activeAsteroids, asteroidPool);
                 cleanup(activeParticles, particlePool);
                 cleanup(activePowerUps, powerUpPool);
-                
+
                 // LEVEL CLEAR
                 if (activeAsteroids.length === 0 && gameState === GAME_STATE.PLAYING) {
-                    level++; ship.reset(); createAsteroidBelt(ASTEROID_NUM_START + level - 1); 
+                    level++; ship.reset(); createAsteroidBelt(ASTEROID_NUM_START + level - 1);
+                    soundManager.resetHeartbeat();
                 }
-                
+
                 // DRAW
-                activePowerUps.forEach(p => p.draw()); 
-                ship.draw(); 
+                activePowerUps.forEach(p => p.draw());
+                ship.draw();
                 if (ship.isFiringLaser && ship.activeWeapon === 'laser') {
                     const laserStart = { x: ship.x + ship.radius * Math.cos(ship.angle), y: ship.y + ship.radius * Math.sin(ship.angle) };
                     const laserEnd = { x: laserStart.x + Math.cos(ship.angle) * width * 1.5, y: laserStart.y + Math.sin(ship.angle) * height * 1.5 };
@@ -609,8 +724,8 @@
                     ctx.strokeStyle = LASER_COLOR; ctx.lineWidth = 4; ctx.shadowColor = LASER_COLOR; ctx.shadowBlur = 20; ctx.stroke();
                     ctx.lineWidth = 2; ctx.strokeStyle = 'white'; ctx.stroke(); ctx.shadowBlur = 0;
                 }
-                activeBullets.forEach(b => b.draw()); 
-                activeAsteroids.forEach(a => a.draw()); 
+                activeBullets.forEach(b => b.draw());
+                activeAsteroids.forEach(a => a.draw());
                 activeParticles.forEach(p => p.draw());
 
                 // UI Update
@@ -636,12 +751,20 @@
                 keys[e.code] = true;
                 if (e.code === 'Space') {
                     e.preventDefault();
-                    if (ship.activeWeapon === 'laser') {
-                        if (!ship.isFiringLaser) {
-                            ship.isFiringLaser = true;
-                            soundManager.toggleLoop('laser', true);
+                    if (!firePressed) { // Only on initial press
+                        firePressed = true;
+                        if (ship.activeWeapon === 'laser') {
+                            if (!ship.isFiringLaser) {
+                                ship.isFiringLaser = true;
+                                // No classic laser in original, so no sound
+                            }
+                        } else {
+                            if (fireCooldown <= 0) {
+                                ship.shoot();
+                                fireCooldown = FIRE_RATE;
+                            }
                         }
-                    } else { ship.shoot(); }
+                    }
                 }
             } else if (e.code === 'Enter') {
                 e.preventDefault();
@@ -660,9 +783,10 @@
             if (gameState === GAME_STATE.PLAYING) {
                 keys[e.code] = false;
                 if (e.code === 'Space') {
+                    firePressed = false;
                     if (ship.activeWeapon === 'laser' && ship.isFiringLaser) {
                         ship.isFiringLaser = false;
-                        soundManager.toggleLoop('laser', false);
+                        // No sound for laser off
                     }
                 }
             }
@@ -678,6 +802,7 @@
         activeAsteroids = [];
         createAsteroidBelt(5, true);
         setGameState(GAME_STATE.MENU);
+        soundManager.resetHeartbeat();
         requestAnimationFrame(gameLoop);
     </script>
 </body>
