@@ -1,0 +1,53 @@
+Sheet Name,Column Header,Type,Required?,Description
+fnames,id,string,Required,Unique ID for the first name
+fnames,name,string,Required,First name to display
+fnames,gender,enum,Required,Gender ID this name applies to
+fnames,genre,csv_ids,Required,Genre IDs this name belongs to
+lnames,id,string,Required,Unique ID for the last name
+lnames,name,string,Required,Last name to display
+lnames,genre,csv_ids,Required,Genre IDs this name belongs to
+genders,id,string,Required,"Gender identifier (e.g., male)"
+genders,label,string,Required,Human-readable gender name
+agegroups,id,string,Required,Unique ID for age group
+agegroups,label,string,Required,Label for the age group
+agegroups,min_age,int,Required,Minimum age in this group
+agegroups,max_age,int,Required,Maximum age in this group
+races,id,string,Required,Unique ID for the race
+races,name,string,Required,Name of the race
+races,genre,csv_ids,Required,Genre IDs
+races,lifespan,int,Required,Average lifespan
+races,magic_affinity,enum,Required,Magic Affinity ID
+races,tech_level,enum,Required,Tech Level ID
+races,size,enum,Required,Size ID
+races,traits,csv_ids,Optional,Trait IDs typical of this race
+traits,id,string,Required,Unique ID for trait
+traits,label,string,Required,Name of the trait
+traits,category,string,Required,"Category (e.g., Physical)"
+traits,genre,csv_ids,Required,Genre IDs
+traits,allowed_age_groups,csv_ids,Optional,Age group IDs where this trait is valid
+traits,allowed_genders,csv_ids,Optional,Genders allowed to have this trait
+traits,required_magic_affinity,enum,Optional,Minimum magic affinity
+traits,required_races,csv_ids,Optional,Valid only for specific race IDs
+occupations,id,string,Required,Unique ID for occupation
+occupations,name,string,Required,Occupation name
+occupations,genre,csv_ids,Required,Genre IDs
+occupations,class_type,enum,Required,Class type ID
+occupations,allowed_age_groups,csv_ids,Optional,Age groups this applies to
+occupations,common_races,csv_ids,Optional,Race IDs that commonly hold this occupation
+occupations,tech_levels,csv_ids,Optional,Valid tech levels
+backgrounds,id,string,Required,Unique ID for background
+backgrounds,label,string,Required,Background name
+backgrounds,genre,csv_ids,Required,Genre IDs
+backgrounds,common_races,csv_ids,Optional,Races commonly associated
+sizes,id,string,Required,Size ID
+sizes,label,string,Required,Human-readable size
+magic_affinity,id,string,Required,Magic affinity ID
+magic_affinity,label,string,Required,Label for magic affinity
+tech_levels,id,string,Required,Tech level ID
+tech_levels,label,string,Required,Label for tech level
+class_types,id,string,Required,Class type ID
+class_types,label,string,Required,Label for class type
+genres,id,int,Required,Genre ID number
+genres,label,string,Required,Name of the genre
+genres,css_class,string,Optional,CSS class name for styling
+genres,color_hex,string,Optional,Hex color for genre styling
