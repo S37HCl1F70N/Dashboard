@@ -10,13 +10,31 @@ async function loadAllData() {
     'tech_levels', 'magic_affinity', 'class_types', 'genres'
   ];
 
+  const failed = [];
   for (let key of files) {
-    const res = await fetch(`json/${key}.json`);
-    state.dataPool[key] = await res.json();
+    try {
+      const res = await fetch(`json/${key}.json`);
+      if (!res.ok) {
+        console.warn(`⚠️ Missing file: json/${key}.json`);
+        failed.push(key);
+        continue;
+      }
+      state.dataPool[key] = await res.json();
+    } catch (err) {
+      console.warn(`⚠️ Problem loading json/${key}.json:`, err);
+      failed.push(key);
+    }
   }
 
-  state.genres = state.dataPool.genres;
+  state.genres = state.dataPool.genres || [];
   populateGenresDropdown(state.genres);
+
+  if (failed.length > 0) {
+    alert(
+      `Some data files failed to load: ${failed.join(', ')}. ` +
+      `Character generation may be incomplete.`
+    );
+  }
 }
 
 function populateGenresDropdown(genres) {
