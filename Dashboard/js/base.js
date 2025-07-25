@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Determine correct path to CSS (adjust if structure changes)
   function getThemePath(theme) {
-    return `../${theme}.css`;
+    return `../css/themes/${theme}.css`;
   }
 
   // Apply theme to <html> and stylesheet link
