@@ -56,27 +56,24 @@ Open `dashboard/dashboard.html` or `radar/radar.html` directly in your web brows
 
 ```
 Dashboard/
-├── css                                   # Global styles and layout
-|    ├── dashboard
-|    |   └── dashboard.css                # Dashboard-specific styles
-|    ├── radar
-|    |   └── radar.css                    # Radar-specific styles
-|    ├── themes
-|    |   ├── crt-theme.css                # CRT theme styles
-|    |   └── dark-theme.css               # Dark theme styles
-|    ├── base.css                         # Universal page styles
-|    └──  responsive.css                  # Responsive design rules
-├── html           
-|    ├── dashboard.html                   # Main dashboard page
-|    ├── radar.html                       # NOAA radar dashboard
-|    └──  ...
-├── js                                
-|    ├── dashboard.js                     # Dashboard widgets logic
-|    ├── radar.js                         # Radar page logic
-|    ├──base.js                           # Theme toggle and shared JS
-|    └──  ...
-└── fonts/                                # Custom font assets
-
+├── css/
+│   ├── base.css
+│   ├── dashboard.css
+│   ├── radar.css
+│   ├── sudoku.css
+│   ├── responsive.css
+│   └── themes/
+│       ├── crt-theme.css
+│       └── dark-theme.css
+├── html/
+│   ├── dashboard.html
+│   ├── radar.html
+│   └── sudoku.html
+├── js/
+│   ├── base.js
+│   ├── dashboard.js
+│   ├── radar.js
+│   └── sudoku.js
 ```
 
 ---
@@ -136,5 +133,4 @@ Use, modify, and redistribute freely.
 
 ## Credits
 
-- Fonts: [FX_LED](fonts/FX-LED.ttf), [Hack](fonts/Hack-Regular.ttf)
 - Inspired by DAKboard and retro terminal dashboards.
