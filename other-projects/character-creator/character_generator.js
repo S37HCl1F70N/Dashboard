@@ -56,7 +56,24 @@ function getFiltered(data, field, allowedId) {
   });
 }
 
-function getRandomFrom(array) {
+function getRandomFrom(array, weightProp) {
+  if (!Array.isArray(array) || array.length === 0) return undefined;
+
+  if (weightProp) {
+    const weights = array.map(item => parseFloat(item[weightProp]) || 0);
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+
+    if (totalWeight > 0) {
+      let rand = Math.random() * totalWeight;
+      for (let i = 0; i < array.length; i++) {
+        rand -= weights[i];
+        if (rand <= 0) {
+          return array[i];
+        }
+      }
+    }
+  }
+
   return array[Math.floor(Math.random() * array.length)];
 }
 
@@ -79,12 +96,12 @@ function generateCharacter() {
   const agegroups = state.dataPool.agegroups;
 
   const agegroup = getRandomFrom(agegroups);
-  const race = getRandomFrom(races);
+  const race = getRandomFrom(races, 'weight');
   const occupation = getRandomFrom(occupations);
   const background = getRandomFrom(backgrounds);
-  const firstName = getRandomFrom(fnames);
-  const lastName = getRandomFrom(lnames);
-  const selectedTraits = Array.from({ length: 3 }, () => getRandomFrom(traits));
+  const firstName = getRandomFrom(fnames, 'weight');
+  const lastName = getRandomFrom(lnames, 'weight');
+  const selectedTraits = Array.from({ length: 3 }, () => getRandomFrom(traits, 'weight'));
 
   if (!firstName || !lastName) {
     alert("No valid names found for this genre and gender. Please check your fnames/lnames.json.");
