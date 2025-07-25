@@ -26,7 +26,7 @@ function populateGenresDropdown(genres) {
   genres.forEach(genre => {
     const option = document.createElement("option");
     option.value = genre.id;
-    option.textContent = genre.label;
+    option.textContent = genre.name;
     genreSelect.appendChild(option);
   });
 }
@@ -52,12 +52,12 @@ function generateCharacter() {
   const genders = state.dataPool.genders;
   const gender = getRandomFrom(genders);
 
-  const fnames = state.dataPool.fnames.filter(n => n.gender === gender.id && n.genre.includes(genreId));
-  const lnames = getFiltered(state.dataPool.lnames, "genre", genreId);
-  const races = getFiltered(state.dataPool.races, "genre", genreId);
-  const traits = getFiltered(state.dataPool.traits, "genre", genreId);
-  const occupations = getFiltered(state.dataPool.occupations, "genre", genreId);
-  const backgrounds = getFiltered(state.dataPool.backgrounds, "genre", genreId);
+  const fnames = state.dataPool.fnames.filter(n => n.gender_id === gender.id && n.genre_ids.toString().split("," ).includes(genreId.toString()));
+  const lnames = getFiltered(state.dataPool.lnames, "genre_ids", genreId);
+  const races = getFiltered(state.dataPool.races, "genre_ids", genreId);
+  const traits = getFiltered(state.dataPool.traits, "genre_ids", genreId);
+  const occupations = getFiltered(state.dataPool.occupations, "genre_ids", genreId);
+  const backgrounds = getFiltered(state.dataPool.backgrounds, "genre_ids", genreId);
   const agegroups = state.dataPool.agegroups;
 
   const agegroup = getRandomFrom(agegroups);
@@ -80,9 +80,9 @@ function generateCharacter() {
     <p><strong>Age Group:</strong> ${agegroup.label} (${agegroup.min_age}–${agegroup.max_age})</p>
     <p><strong>Race:</strong> ${race?.name || "Unknown"}</p>
     <p><strong>Occupation:</strong> ${occupation?.name || "None"}</p>
-    <p><strong>Background:</strong> ${background?.label || "None"}</p>
-    <p><strong>Traits:</strong> ${selectedTraits.map(t => t?.label || "???").join(", ")}</p>
-    <p><strong>Genre:</strong> ${state.genres.find(g => g.id == genreId)?.label || "Unknown"}</p>
+    <p><strong>Background:</strong> ${background?.name || "None"}</p>
+    <p><strong>Traits:</strong> ${selectedTraits.map(t => t?.name || "???").join(", ")}</p>
+    <p><strong>Genre:</strong> ${state.genres.find(g => g.id == genreId)?.name || "Unknown"}</p>
   `;
 }
 
