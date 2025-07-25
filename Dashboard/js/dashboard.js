@@ -250,5 +250,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
   // --- Log ---
-  console.log("All widget functionalities initialized.");
+  // console.log("All widget functionalities initialized.");
 });
