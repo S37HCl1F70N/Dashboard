@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Character Generation System</title>
+  <link rel="stylesheet" href="character_generator.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Character Generation System</h1>
+      <p class="subtitle">A complete, genre-aware, intelligent character generator</p>
+    </header>
+
+    <main>
+      <section class="controls">
+        <div class="genre-selector">
+          <h2>Select Genre</h2>
+          <select id="genre-select">
+            <option value="">All Genres</option>
+            <!-- Populated by JS -->
+          </select>
+        </div>
+
+        <div class="generation-controls">
+          <button id="generate-character" class="primary-button">Generate Character</button>
+          <button id="generate-party" class="secondary-button">Generate Party (3–6)</button>
+        </div>
+      </section>
+
+      <section class="character-display">
+        <div id="character-card" class="character-card">
+          <div class="character-header">
+            <h2 id="character-name">Character Name</h2>
+            <div class="character-basics">
+              <span id="character-race">Race</span> |
+              <span id="character-gender">Gender</span> |
+              <span id="character-age">Age</span>
+            </div>
+          </div>
+
+          <div class="character-occupation">
+            <h3>Occupation</h3>
+            <p id="character-occupation-value">Occupation</p>
+          </div>
+
+          <div class="character-traits">
+            <h3>Traits</h3>
+            <ul id="traits-list">
+              <!-- Populated by JS -->
+            </ul>
+          </div>
+
+          <div class="character-background">
+            <h3>Background</h3>
+            <p id="character-background-value">Background</p>
+          </div>
+
+          <div class="character-backstory">
+            <h3>Backstory</h3>
+            <p id="character-backstory-value">Backstory text will appear here...</p>
+          </div>
+        </div>
+
+        <div class="character-actions">
+          <div class="reroll-controls">
+            <h3>Reroll Individual Elements</h3>
+            <button id="reroll-name" class="reroll-button">Name</button>
+            <button id="reroll-traits" class="reroll-button">Traits</button>
+            <button id="reroll-occupation" class="reroll-button">Occupation</button>
+            <button id="reroll-background" class="reroll-button">Background</button>
+          </div>
+
+          <div class="export-controls">
+            <h3>Export Options</h3>
+            <button id="copy-clipboard" class="export-button">Copy to Clipboard</button>
+            <button id="save-json" class="export-button">Save as JSON</button>
+            <div class="export-format-selector">
+              <select id="export-format">
+                <option value="dnd5e">D&D 5e Stat Block</option>
+                <option value="npc">NPC JSON</option>
+                <option value="vn">Visual Novel Profile</option>
+              </select>
+              <button id="export-format-button" class="export-button">Export</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="party-display" class="party-display hidden">
+        <h2>Generated Party</h2>
+        <div class="party-members" id="party-members"></div>
+        <div class="party-connections">
+          <h3>Party Connections</h3>
+          <p id="party-connections-value">Connections between party members will appear here...</p>
+        </div>
+        <button id="hide-party" class="secondary-button">Hide Party</button>
+      </section>
+    </main>
+
+    <footer>
+      <p>Character Generation System &copy; 2025</p>
+    </footer>
+  </div>
+
+  <!-- Character trait tooltip -->
+  <div id="trait-tooltip-template" class="tooltip-template hidden">
+    <div class="tooltip-content">
+      <h4 class="tooltip-title"></h4>
+      <p class="tooltip-description"></p>
+      <div class="tooltip-metadata">
+        <span class="tooltip-category"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading overlay -->
+  <div id="loading-overlay" class="loading-overlay hidden">
+    <div class="spinner"></div>
+    <p>Generating character...</p>
+  </div>
+
+  <!-- 🧠 REQUIRED SCRIPTS -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.full.min.js"></script>
+  <script src="character_generator.js"></script>
+</body>
+</html>
