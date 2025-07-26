@@ -297,11 +297,16 @@ const wsDefenseTab = document.getElementById('ws-defense-tab');
 const wsUtilityTab = document.getElementById('ws-utility-tab');
 
 // --- Game State and Config ---
+
+
+// --- Upgrade and Card Data (MOVED UP) ---
+
+// --- State Initialization (MOVED DOWN) ---
+let workshopState = loadWorkshopStats();
 let animationFrameId;
 const TOWER_POS = { x: 0, y: 0 };
 let gameState = {};
 let battleUpgrades = {};
-let workshopState = {};
 let spawnTimeouts = [];
 let particles = [];
 let visualEffects = [];
@@ -1132,6 +1137,7 @@ function updateWave(deltaTime) {
             const accelWorkshop = workshopState.upgrades.utility['Wave Accelerator'];
             cooldownDuration *= (1 - accelWorkshop.effect);
 
+            cooldownDuration = Math.max(1, cooldownDuration); // Enforce minimum cooldown of 1s
             gameState.waveTimer = cooldownDuration;
             gameState.currentPhaseDuration = cooldownDuration;
 
@@ -1519,6 +1525,8 @@ function showMainMenuScreen() {
     gameOverModal.classList.add('hidden');
     workshopModal.classList.add('hidden');
     cardsModal.classList.add('hidden');
+    intermissionOverlay.classList.add('hidden');
+    animationFrameId = null; // Ensure game loop can restart
 }
 
 function showGameScreen() {
@@ -1527,6 +1535,7 @@ function showGameScreen() {
     gameOverModal.classList.add('hidden');
     workshopModal.classList.add('hidden');
     cardsModal.classList.add('hidden');
+    intermissionOverlay.classList.add('hidden');
     setupGame();
 }
 
@@ -1536,6 +1545,7 @@ function showWorkshopScreen() {
     workshopModal.classList.remove('hidden');
     mainMenu.classList.add('hidden');
     gameOverModal.classList.add('hidden');
+    intermissionOverlay.classList.add('hidden');
 }
 
 function showCardsScreen() {
@@ -1543,6 +1553,7 @@ function showCardsScreen() {
     updateCardsUI();
     cardsModal.classList.remove('hidden');
     mainMenu.classList.add('hidden');
+    intermissionOverlay.classList.add('hidden');
 }
 
 function updateCardsUI() {
@@ -1584,7 +1595,7 @@ function toggleCardEquip(cardName) {
 }
 
 function equipCard(cardName) {
-    if (cardState.equipped.length < cardState.slots) {
+    if (cardState.equipped.length < cardState.slots && !cardState.equipped.includes(cardName)) {
         cardState.equipped.push(cardName);
         saveCardState();
         updateCardsUI();
@@ -1622,6 +1633,7 @@ function setGameSpeed(speed) {
     if (speed === 1) speed1xBtn.classList.add('speed-btn-active');
     else if (speed === 2) speed2xBtn.classList.add('speed-btn-active');
     else if (speed === 4) speed4xBtn.classList.add('speed-btn-active');
+    else if (speed === 0) pauseBtn.classList.add('speed-btn-active');
 }
 
 // --- Initialization ---
